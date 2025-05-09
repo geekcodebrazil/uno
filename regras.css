@@ -1,0 +1,393 @@
+/* Importação das Fontes (mesmas do jogo) */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@400;600&display=swap');
+
+/* ===== Variáveis (Copiar/Reutilizar do style.css do jogo) ===== */
+:root {
+    --bg-table: #0f0f1a; /* Fundo da "mesa" como fundo da página de regras */
+    --bg-gradient-start: #1a1a2e;
+    --bg-gradient-end: #16213e; /* Usado para elementos destacados */
+    --card-bg: #282a36;
+    --card-border: #44475a;
+    --text-light: #f8f8f2;
+    --text-dark: #282a36;
+    --highlight: #bd93f9; /* Roxo claro */
+    --link-color: #8be9fd; /* Azul claro para links */
+    --link-hover: #ff79c6; /* Rosa neon para hover */
+
+    --uno-red: #ff5555;
+    --uno-blue: #6272a4;
+    --uno-green: #50fa7b;
+    --uno-yellow: #f1fa8c;
+    --uno-black: #282a36;
+    --neon-pink: #ff79c6;
+
+    --font-primary: 'Poppins', sans-serif;
+    --font-secondary: 'Orbitron', sans-serif; /* Para títulos */
+}
+
+/* ===== Estilos Base ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    scroll-behavior: smooth; /* Rolagem suave para links internos */
+}
+
+html {
+     scroll-padding-top: 20px; /* Espaço ao rolar para um ID, evita que o título fique colado no topo */
+}
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--bg-table);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 15px 15px;
+    color: var(--text-light);
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 900px; /* Largura máxima para o conteúdo */
+    margin: 30px auto; /* Centralizar com margem */
+    padding: 25px 35px;
+    background: linear-gradient(145deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4), 0 0 8px var(--highlight);
+    flex-grow: 1; /* Ocupa espaço vertical, empurrando footer */
+}
+
+/* ===== Cabeçalho e Títulos ===== */
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 20px;
+}
+
+h1 {
+    font-family: var(--font-secondary);
+    color: var(--highlight);
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    text-shadow: 0 0 5px var(--highlight);
+}
+
+.uno-logo { /* Destaca a palavra UNO */
+    font-weight: 700;
+    color: var(--uno-red);
+    /* Poderia adicionar um efeitinho extra aqui */
+}
+
+p.intro {
+    font-size: 1.1rem;
+    color: #ccc; /* Cinza claro para introdução */
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+h2 {
+    font-family: var(--font-secondary);
+    color: var(--neon-pink);
+    margin-top: 35px; /* Espaçamento acima das seções */
+    margin-bottom: 15px;
+    font-size: 1.8rem;
+    border-bottom: 1px solid rgba(255, 121, 198, 0.3); /* Linha sutil abaixo */
+    padding-bottom: 5px;
+}
+
+h3 {
+    font-family: var(--font-primary);
+    font-weight: 600;
+    color: var(--uno-yellow);
+    margin-top: 25px;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
+}
+
+/* ===== Tabela de Conteúdo (Índice) ===== */
+.table-of-contents {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px solid var(--card-border);
+}
+
+.table-of-contents h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.5rem; /* Menor que títulos de seção */
+    border-bottom: none; /* Sem linha dupla */
+    text-align: center;
+}
+
+.table-of-contents ul {
+    list-style: none; /* Remove bullets */
+    padding: 0;
+    column-count: 2; /* Duas colunas em telas maiores */
+    column-gap: 20px;
+}
+.table-of-contents ul ul { /* Sublista (tipos de cartas) */
+    margin-left: 15px;
+    margin-top: 5px;
+    column-count: 1; /* Sublista em coluna única */
+}
+
+.table-of-contents li {
+    margin-bottom: 10px;
+}
+
+.table-of-contents a {
+    color: var(--link-color);
+    text-decoration: none;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+    font-weight: 600;
+}
+
+.table-of-contents a:hover,
+.table-of-contents a:focus {
+    color: var(--link-hover);
+    text-shadow: 0 0 3px var(--link-hover);
+    text-decoration: underline;
+}
+
+/* ===== Conteúdo Principal ===== */
+main p {
+    margin-bottom: 15px;
+}
+
+main ul, main ol {
+    margin-left: 25px; /* Indentação padrão para listas */
+    margin-bottom: 15px;
+}
+main ul li::marker { /* Estilo do marcador (bullet) */
+    color: var(--highlight);
+}
+main ol li::marker { /* Estilo do marcador (número) */
+    font-weight: bold;
+    color: var(--highlight);
+}
+
+main ul ul {
+    margin-top: 8px; /* Espaço antes de sublistas */
+    margin-bottom: 8px;
+}
+
+main strong { /* Destacar texto importante */
+    color: var(--uno-yellow);
+    font-weight: 600;
+}
+
+main code { /* Para nomes de cartas ou termos específicos */
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--uno-green);
+}
+
+main a { /* Links dentro do texto */
+    color: var(--link-color);
+    text-decoration: underline;
+    font-weight: 600;
+     transition: color 0.2s ease;
+}
+main a:hover, main a:focus {
+    color: var(--link-hover);
+}
+
+/* ===== "Imagens" das Cartas (CSS Cards) ===== */
+.card-example {
+    display: inline-block; /* Para inserir no fluxo do texto */
+    margin: 0 5px; /* Pequeno espaço em volta */
+    vertical-align: middle; /* Alinha com o texto */
+    white-space: nowrap; /* Evita quebra dentro do exemplo */
+}
+.card-example.inline {
+    margin: 0 3px;
+}
+.card-example span { /* Para textos descritivos perto dos cards */
+     font-size: 0.9em;
+     color: #bbb;
+     margin-right: 5px;
+ }
+
+.tutorial-card {
+    display: inline-flex; /* Para alinhar conteúdo interno */
+    justify-content: center;
+    align-items: center;
+    width: 45px;  /* Tamanho padrão no tutorial */
+    height: 65px;
+    border-radius: 5px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.3);
+    font-family: var(--font-secondary);
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-light); /* Padrão */
+    margin: 2px; /* Espaço entre cartas em galerias */
+    position: relative; /* Para pseudo-elementos se necessário */
+    overflow: hidden;
+    vertical-align: middle;
+}
+.tutorial-card.small { /* Versão menor para inline */
+     width: 30px;
+     height: 45px;
+     font-size: 0.9rem;
+     border-radius: 3px;
+}
+
+/* Cores das Cartas */
+.tutorial-card.card--red { background-color: var(--uno-red); color: var(--text-light); }
+.tutorial-card.card--blue { background-color: var(--uno-blue); color: var(--text-light); }
+.tutorial-card.card--green { background-color: var(--uno-green); color: var(--text-dark); }
+.tutorial-card.card--yellow { background-color: var(--uno-yellow); color: var(--text-dark); }
+.tutorial-card.card--special { background-color: var(--uno-black); } /* Base para Coringas */
+
+/* Conteúdo das Cartas */
+.tutorial-card .value span,
+.tutorial-card > span { /* Span para valor ou texto */
+     position: relative; z-index: 1;
+}
+
+/* Cartas de Ação (usando texto/ícone) */
+.tutorial-card.card--skip .value span::before { content: 'Ø'; font-size: 1.3em; }
+.tutorial-card.card--reverse .value span::before { content: '⇄'; font-size: 1.3em; }
+.tutorial-card.card--draw2 .value span::before { content: '+2'; }
+.tutorial-card.card--wild .value span::before { content: 'W'; } /* Simples W */
+.tutorial-card.card--wild4 .value span::before { content: '+4'; }
+
+/* Coringas (fundo especial) */
+.tutorial-card.card--wild,
+.tutorial-card.card--wild4 {
+    background: linear-gradient(135deg, var(--uno-red) 15%, var(--uno-yellow) 40%, var(--uno-green) 65%, var(--uno-blue) 90%);
+    color: var(--text-light);
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+}
+
+/* Verso da Carta */
+.tutorial-card.card--back {
+    background: linear-gradient(135deg, #414345, #232526);
+}
+.tutorial-card.card--back span {
+    font-size: 0.8em; /* Menor para 'UNO' no verso */
+    color: var(--uno-red);
+    transform: rotate(-10deg);
+}
+
+
+/* Galeria de exemplos de cartas */
+.card-gallery {
+    background-color: rgba(0, 0, 0, 0.15);
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    text-align: center; /* Centraliza os cards */
+}
+
+/* Exemplos visuais específicos */
+.visual-setup, .visual-play, .visual-uno, .visual-stack, .visual-color-choice, .visual-win {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-left: 3px solid var(--highlight);
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 0 5px 5px 0;
+}
+.visual-uno p:last-child { color: var(--uno-yellow); font-weight: bold;}
+.visual-win p:last-child { color: var(--uno-green); font-weight: bold; font-size: 1.2em; }
+.visual-stack p, .visual-play p { margin-bottom: 5px; }
+
+/* Botões de exemplo de escolha de cor */
+.color-btn-example {
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    margin: 0 5px;
+    vertical-align: middle;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+}
+.color-btn-example.color--red { background-color: var(--uno-red); }
+.color-btn-example.color--blue { background-color: var(--uno-blue); }
+.color-btn-example.color--green { background-color: var(--uno-green); }
+.color-btn-example.color--yellow { background-color: var(--uno-yellow); }
+
+
+/* ===== Rodapé ===== */
+footer {
+    /* Reutilizar estilos do footer do jogo */
+    background-color: rgba(0, 0, 0, 0.4); /* Fundo semi-transparente diferente da página */
+    padding: 20px 0;
+    text-align: center;
+    margin-top: 40px; /* Espaço acima do rodapé */
+    font-size: 0.9rem;
+    width: 100%; /* Ocupa largura total */
+    /* Correção: Precisa estar fora do .container para ocupar toda largura */
+    position: relative; /* Ou deixar estático mesmo se o body for flex */
+}
+
+.footer-links a, .footer-links span {
+    color: var(--text-light);
+    text-decoration: none;
+    margin: 0 10px;
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover {
+    color: var(--highlight);
+    text-decoration: underline;
+}
+
+.footer-links span {
+    color: var(--card-border);
+}
+
+.copyright {
+    margin-top: 10px;
+    color: #aaa;
+}
+
+.geek { color: var(--uno-green); font-weight: bold; }
+.code { color: var(--neon-pink); font-weight: bold; }
+
+/* ===== Responsividade ===== */
+@media (max-width: 768px) {
+    .container {
+        margin: 20px auto;
+        padding: 20px;
+    }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.6rem; }
+    h3 { font-size: 1.3rem; }
+    .table-of-contents ul { column-count: 1; } /* Uma coluna no índice */
+     footer { padding: 15px 0; font-size: 0.8rem; }
+     .footer-links a, .footer-links span { margin: 0 5px; }
+}
+
+@media (max-width: 480px) {
+     body { font-size: 15px; } /* Ajuste global para telas pequenas */
+     .container {
+        margin: 10px auto;
+        padding: 15px;
+        border-radius: 8px;
+    }
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.4rem; }
+    h3 { font-size: 1.2rem; }
+
+     .tutorial-card { width: 35px; height: 50px; font-size: 1rem; }
+     .tutorial-card.small { width: 25px; height: 35px; font-size: 0.7rem; }
+
+     footer {
+        padding: 10px 0;
+        font-size: 0.75rem;
+    }
+    .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+     .footer-links span { display: none; }
+}

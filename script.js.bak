@@ -1,0 +1,1906 @@
+**Arquivo `script.js` Completo:**
+
+```javascript
+// ===== Elementos do DOM =====
+const playerHandElement = document.getElementById('player-hand');
+const opponentHandElement = document.querySelector('.opponent-hand .card--back');
+const deckPileElement = document.getElementById('deck-pile');
+const discardPileElement = document.getElementById('discard-pile');
+const drawCardBtn = document.getElementById('draw-card-btn'); // Botão Comprar Carta (inferior)
+const unoBtn = document.getElementById('uno-btn');            // Botão UNO! (inferior)
+const restartGameBtnTop = document.getElementById('restart-game-btn'); // Botão Reiniciar (topo - NOVO)
+const gameStatusElement = document.getElementById('game-status');
+const colorPickerModal = document.getElementById('color-picker-modal');
+const colorButtons = document.querySelectorAll('.color-btn');
+const currentYearElement = document.getElementById('current-year');
+const playerZoneElement = document.querySelector('.player-area');
+const opponentZoneElement = document.querySelector('.opponent-area');
+
+// ===== Variáveis de Estado do Jogo =====
+let deck = [];
+let discardPile = [];
+let players = [];
+let currentPlayerIndex = 0;
+let gameDirection = 1;        // 1 para horário, -1 para anti-horário
+let currentValidColor = null; // Cor atualmente válida para jogar
+let currentValidValue = null; // Valor atualmente válido para jogar (número ou tipo de ação)
+let mustDrawCards = 0;        // Quantidade de cartas acumuladas para compra obrigatória (+2, +4)
+let playerMustPlayOrDraw = false; // Indica se o jogador atual TEM que jogar uma carta de compra ou comprar
+let wildColorChoiceCallback = null; // Função a ser chamada após escolha da cor
+let unoCalled = [false, false];   // Indica se cada jogador (0: humano, 1: bot) JÁ gritou UNO
+let canCallUno = [false, false];  // Indica se cada jogador ESTÁ em condição de gritar UNO (tem 1 carta)
+let botThinking = false;          // Flag para evitar ações do jogador enquanto o bot "pensa"
+let botNextColorChoice = null;    // Cor pré-escolhida pelo bot para Wild/Wild4
+let gameOver = false;             // Flag indicando o fim do jogo
+
+// ===== Constantes do Jogo =====
+const COLORS = ['red', 'blue', 'green', 'yellow'];
+const VALUES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2'];
+const SPECIAL_VALUES = ['wild', 'wild4'];
+const CARDS_PER_PLAYER = 7;        // Número de cartas iniciais
+const BOT_TURN_DELAY_MS = 1500;    // Tempo (ms) que o bot leva para "pensar"
+
+// ===== Funções do Jogo =====
+
+/**
+ * Cria um baralho padrão de UNO com IDs únicos para cada carta.
+ * @returns {Array<Object>} O array representando o baralho completo.
+ */
+function createDeck() {
+    const newDeck = [];
+    let cardIdCounter = 0; // Contador para IDs únicos
+
+    // Cartas Coloridas Numéricas e de Ação
+    COLORS.forEach(color => {
+        // Uma carta '0' por cor
+        newDeck.push({ color, value: '0', id: `card-${cardIdCounter++}` });
+        // Duas cartas '1' a '9' por cor
+        for (let i = 1; i <= 9; i++) {
+            newDeck.push({ color, value: String(i), id: `card-${cardIdCounter++}` });
+            newDeck.push({ color, value: String(i), id: `card-${cardIdCounter++}` });
+        }
+        // Duas cartas de ação (Skip, Reverse, Draw2) por cor
+        ['skip', 'reverse', 'draw2'].forEach(value => {
+            newDeck.push({ color, value, type: 'action', id: `card-${cardIdCounter++}` });
+            newDeck.push({ color, value, type: 'action', id: `card-${cardIdCounter++}` });
+        });
+    });
+
+    // Cartas Especiais (Wild e Wild Draw 4)
+    for (let i = 0; i < 4; i++) {
+        newDeck.push({ color: 'special', value: 'wild', type: 'wild', id: `card-${cardIdCounter++}` });
+        newDeck.push({ color: 'special', value: 'wild4', type: 'wild', id: `card-${cardIdCounter++}` });
+    }
+
+    console.log(`Deck criado com ${newDeck.length} cartas.`);
+    return newDeck;
+}
+
+/**
+ * Embaralha um array utilizando o algoritmo Fisher-Yates.
+ * @param {Array<any>} array - O array a ser embaralhado.
+ */
+function shuffleDeck(array) {
+    console.log(`Embaralhando ${array.length} cartas.`);
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]]; // Troca elementos
+    }
+}
+
+/**
+ * Distribui as cartas iniciais para os jogadores.
+ * Trata erros se não houver cartas suficientes.
+ */
+function dealCards() {
+    console.log(`Distribuindo ${CARDS_PER_PLAYER} cartas para ${players.length} jogadores.`);
+    for (let i = 0; i < CARDS_PER_PLAYER; i++) {
+        for (const player of players) {
+            if (gameOver) return; // Interrompe se o jogo já acabou por erro anterior
+            // Tenta reembaralhar o descarte se o deck acabar DURANTE a distribuição
+            if (deck.length === 0 && !reshuffleDiscardPile()) {
+                setStatusMessage("Erro crítico: Faltaram cartas para distribuir!", true);
+                endGame(null, true); // Considera empate por falta de cartas
+                return;
+            }
+             // Verifica novamente após a tentativa de reembaralhar
+             if (deck.length === 0) {
+                setStatusMessage("Erro crítico: Deck vazio inesperadamente após tentativa de reembaralhar!", true);
+                endGame(null, true);
+                return;
+            }
+            // Compra uma carta para o jogador (sem atualizar a UI ainda para otimizar)
+            drawCardFromDeck(player.id, 1, false);
+        }
+        if (gameOver) return; // Verifica novamente se drawCardFromDeck terminou o jogo
+    }
+    console.log(`Distribuição inicial completa. Tamanho do deck: ${deck.length}.`);
+    players.forEach(p => console.log(`  Jogador ${p.id} (${p.name}): ${p.hand.length} cartas.`));
+}
+
+/**
+ * Inicia ou reinicia um novo jogo de UNO.
+ * Configura o estado inicial, baralho, jogadores e a primeira carta.
+ */
+function startGame() {
+    console.log("================ INICIANDO NOVO JOGO ================");
+    // 1. Resetar Estado Geral
+    gameOver = false;
+    botThinking = false;
+    deck = createDeck();
+    shuffleDeck(deck);
+    discardPile = [];
+    mustDrawCards = 0;
+    playerMustPlayOrDraw = false;
+    players = [
+        { id: 0, hand: [], isBot: false, name: "Você" },
+        { id: 1, hand: [], isBot: true, name: "Bot" }
+    ];
+    currentPlayerIndex = 0; // Humano começa por padrão
+    gameDirection = 1;      // Sentido horário
+    wildColorChoiceCallback = null;
+    unoCalled = [false, false];
+    canCallUno = [false, false];
+    botNextColorChoice = null;
+
+    // 2. Resetar UI Visual
+    if (currentYearElement) currentYearElement.textContent = new Date().getFullYear(); // Atualiza ano no footer
+    setStatusMessage("Embaralhando as cartas..."); // Mensagem inicial
+    playerZoneElement?.classList.remove('active-turn', 'has-uno'); // Remove classes de estado
+    opponentZoneElement?.classList.remove('active-turn', 'has-uno');
+    if(playerHandElement) playerHandElement.innerHTML = ''; // Limpa mão visual
+    if(opponentHandElement) opponentHandElement.setAttribute('data-count', '0'); // Reseta contador bot
+    if(discardPileElement) discardPileElement.innerHTML = '<div class="card card--placeholder"><span>Descarte</span></div>'; // Placeholder descarte
+    if(colorPickerModal) colorPickerModal.style.display = 'none'; // Esconde modal de cor
+
+    // Remove botão de reiniciar do *status* se existir (será adicionado ao fim do jogo)
+    const oldRestartButtonStatus = gameStatusElement?.querySelector('.btn--restart');
+    if (oldRestartButtonStatus) {
+        const brBefore = oldRestartButtonStatus.previousElementSibling;
+        if(brBefore && brBefore.tagName === 'BR') brBefore.remove();
+        oldRestartButtonStatus.remove();
+    }
+
+    // 3. Distribuir Cartas
+    dealCards();
+    if (gameOver) return; // Para se houve erro na distribuição
+
+    // 4. Virar Primeira Carta do Descarte
+    let firstCard = null;
+    let firstCardIndex = -1;
+    try {
+        // Procura a primeira carta que NÃO seja Wild ou Wild4
+        firstCardIndex = deck.findIndex(card => card && card.type !== 'wild');
+    } catch(e) {
+        console.error("Erro ao procurar a primeira carta válida no deck:", e);
+        setStatusMessage("Erro crítico ao iniciar a pilha de descarte!", true);
+        endGame(null, true); // Fim de jogo por erro
+        return;
+    }
+
+    // Tratamento para caso raro de só haver cartas Wild no deck
+    if (firstCardIndex === -1) {
+        console.warn("Deck inicial contém apenas cartas Wild/Wild4 ou ocorreu um erro. Usando a última carta como fallback.");
+        // Se encontrar o erro foi real e não só Wilds, o deck pode estar vazio
+        if(deck.length === 0){
+             console.error("ERRO IRRECUPERÁVEL: Deck vazio após distribuição e falha ao encontrar carta inicial!");
+             setStatusMessage("Erro fatal: Impossível iniciar o jogo!", true);
+             endGame(null, true); return;
+        }
+        firstCardIndex = deck.length - 1; // Usa a última carta do deck
+    }
+
+    // Remove a carta escolhida do deck e a adiciona ao descarte
+    firstCard = deck.splice(firstCardIndex, 1)[0];
+    if (!firstCard) { // Validação extra
+        console.error("ERRO CRÍTICO: Falha ao obter a carta inicial do deck!");
+        setStatusMessage("Erro fatal ao definir a carta inicial!", true);
+        endGame(null, true); return;
+    }
+    discardPile.push(firstCard);
+
+    // Define a cor e valor válidos iniciais (Coringas são tratados no handleInitialCardEffect)
+    currentValidColor = (firstCard.color === 'special') ? null : firstCard.color;
+    currentValidValue = firstCard.value;
+
+    console.log(`Setup inicial concluído. Deck: ${deck.length}, Descarte: ${discardPile.length} (Topo: ${firstCard.id}). Cor válida inicial: ${currentValidColor}, Valor válido inicial: ${currentValidValue}`);
+
+    // 5. Aplicar Efeito da Primeira Carta e Iniciar Turno (com delay para visualização)
+    setTimeout(() => {
+        if (gameOver) return; // Verifica novamente antes de continuar
+
+        console.log("Aplicando efeito da primeira carta:", firstCard.id, "Jogador atual ANTES:", currentPlayerIndex);
+        handleInitialCardEffect(firstCard); // Pode alterar currentPlayerIndex e estado
+        console.log("Jogador atual APÓS efeito inicial:", currentPlayerIndex);
+
+        // Valida se o jogador atual ainda é válido
+        if (!players[currentPlayerIndex]) {
+             console.error(`Erro: Jogador índice ${currentPlayerIndex} inválido após efeito inicial.`);
+             setStatusMessage("Erro ao determinar o primeiro jogador!", true);
+             endGame(null, true);
+             return;
+         }
+
+        // Atualiza status para indicar o primeiro jogador
+        setStatusMessage(`É a vez de ${players[currentPlayerIndex].name}!`);
+
+        // Define o indicador visual de turno
+        playerZoneElement?.classList.remove('active-turn');
+        opponentZoneElement?.classList.remove('active-turn');
+        if (currentPlayerIndex === 0) {
+            playerZoneElement?.classList.add('active-turn');
+        } else {
+            opponentZoneElement?.classList.add('active-turn');
+        }
+
+        updateUI(); // Atualiza toda a interface
+        console.log("Primeira atualização da UI pós-setup.");
+
+        // Inicia o turno do primeiro jogador (se for o bot, chama a IA)
+        if (!gameOver && players[currentPlayerIndex]?.isBot) {
+            console.log("O Bot inicia o jogo.");
+            botThinking = true;
+            triggerBotTurn();
+        } else if (!gameOver) {
+            console.log("O Humano inicia o jogo.");
+            botThinking = false;
+            // updateUI() já foi chamado, jogador pode interagir.
+        }
+    }, 600); // Pequeno delay para o jogador ver a carta inicial e o efeito
+}
+
+/**
+ * Lida com os efeitos especiais da PRIMEIRA carta virada (Skip, Reverse, Draw2).
+ * Coringas são tratados separadamente ao serem jogados normalmente.
+ * @param {Object} card - A primeira carta virada na pilha de descarte.
+ */
+function handleInitialCardEffect(card) {
+    console.log("Avaliando efeito da primeira carta:", card?.id);
+    // Ignora se carta for inválida, nula, ou Wild/Wild4 (Wilds normais não tem efeito inicial especial)
+    if (!card || card.type === 'wild') {
+        mustDrawCards = 0; playerMustPlayOrDraw = false; return;
+    }
+    // Efeito só se aplica a cartas de ação coloridas
+    if (card.type !== 'action' || card.color === 'special') {
+        mustDrawCards = 0; playerMustPlayOrDraw = false; return;
+    }
+
+    const initialPlayerIndex = currentPlayerIndex; // Quem começaria normalmente
+     if (!players || players.length === 0 || !players[initialPlayerIndex]) {
+        console.error("Erro: Jogador inicial inválido no handleInitialCardEffect."); return;
+    }
+    const initialPlayerName = players[initialPlayerIndex].name;
+    let effectApplied = false; // Flag para log
+
+    switch (card.value) {
+        case 'skip':
+            // Pula o primeiro jogador
+            currentPlayerIndex = (initialPlayerIndex + gameDirection + players.length) % players.length;
+            setStatusMessage(`Carta inicial: Pular! ${initialPlayerName} perde a primeira vez.`);
+            console.log(`Efeito inicial: Skip! ${initialPlayerName} (idx ${initialPlayerIndex}) perde a vez. Próximo: ${currentPlayerIndex}.`);
+            effectApplied = true;
+            break;
+        case 'reverse':
+             // Com 2 jogadores, funciona como Skip. Com mais, reverteria a ordem (aqui só 2p)
+            currentPlayerIndex = (initialPlayerIndex + gameDirection + players.length) % players.length;
+            setStatusMessage(`Carta inicial: Reverter! ${initialPlayerName} perde a primeira vez.`);
+            console.log(`Efeito inicial: Reverse! ${initialPlayerName} (idx ${initialPlayerIndex}) perde a vez (2 jogadores). Próximo: ${currentPlayerIndex}.`);
+            effectApplied = true;
+            // Se tivesse mais jogadores: gameDirection *= -1; currentPlayerIndex = ... ;
+            break;
+        case 'draw2':
+             // O jogador que começaria deve comprar 2 cartas e perder a vez
+             console.log(`Efeito inicial: +2! ${initialPlayerName} (idx ${initialPlayerIndex}) deve comprar 2.`);
+             // Verifica se há cartas suficientes para comprar
+             if (deck.length < 2 && discardPile.length <= 1) { // Precisa de pelo menos 2 no deck OU 1 no descarte (fora a atual) para reembaralhar
+                console.error("Erro crítico: Não há cartas suficientes para o +2 inicial!");
+                setStatusMessage("Erro: Cartas insuficientes para o +2 inicial!", true);
+                endGame(null, true); return; // Fim por falta de cartas
+             }
+             drawCardFromDeck(initialPlayerIndex, 2, false); // Compra 2, sem update imediato
+             if (gameOver) return; // drawCard pode ter finalizado (erro raro aqui)
+
+             currentPlayerIndex = (initialPlayerIndex + gameDirection + players.length) % players.length; // Passa a vez para o próximo
+             setStatusMessage(`Carta inicial: +2! ${initialPlayerName} compra 2 cartas e perde a vez.`);
+             effectApplied = true;
+             break;
+        // case 'wild': // Wild normal não tem efeito inicial aqui
+        // case 'wild4': // Wild +4 NUNCA deve ser a primeira carta virada (segundo regra oficial)
+            // break;
+    }
+
+    // Resetar flags de compra após qualquer efeito inicial
+    mustDrawCards = 0;
+    playerMustPlayOrDraw = false;
+
+    if (effectApplied) console.log(`Efeito inicial aplicado. O jogador a realmente começar é o índice ${currentPlayerIndex}.`);
+}
+
+
+/**
+ * Adiciona cartas do baralho para a mão de um jogador específico.
+ * Tenta reembaralhar o descarte se o baralho acabar.
+ * Finaliza o jogo como empate se for impossível comprar.
+ * @param {number} playerId - O ID do jogador (0 ou 1).
+ * @param {number} [count=1] - Quantas cartas comprar.
+ * @param {boolean} [update=true] - Se deve atualizar a UI após comprar.
+ * @returns {Array<Object>} As cartas que foram compradas. Retorna array vazio se erro ou impossível.
+ */
+function drawCardFromDeck(playerId, count = 1, update = true) {
+    if (gameOver) return [];
+    const player = players.find(p => p.id === playerId);
+    if (!player) { console.error(`drawCardFromDeck: Jogador ${playerId} não encontrado.`); return []; }
+
+    let drawnCards = [];
+    console.log(`Jogador ${playerId} tentando comprar ${count} carta(s). Deck: ${deck.length}, Descarte: ${discardPile.length}.`);
+
+    for (let i = 0; i < count; i++) {
+        // Se o deck está vazio, tenta reembaralhar
+        if (deck.length === 0) {
+            console.log("Deck vazio. Tentando reembaralhar pilha de descarte.");
+            if (!reshuffleDiscardPile()) {
+                // Se não foi possível reembaralhar (e o deck continua vazio)
+                console.warn(`Impossível comprar mais cartas. Jogador ${playerId} comprou ${drawnCards.length} de ${count} solicitadas.`);
+                // Condição de empate: Ninguém pode comprar mais e ninguém venceu
+                if (deck.length === 0 && discardPile.length <= 1 && drawnCards.length < count) {
+                    setStatusMessage("Fim de jogo: Não há mais cartas para comprar!", true);
+                    console.log("Condição de empate alcançada: Impossível comprar mais cartas.")
+                    endGame(null, true); // Empate
+                }
+                return drawnCards; // Retorna o que conseguiu comprar
+            }
+            // Se reembaralhou com sucesso, o deck agora tem cartas (ou deveria)
+             if (deck.length === 0) { // Verificação de segurança pós-reembaralhamento
+                 console.error("ERRO CRÍTICO: Deck continua vazio mesmo após tentativa de reembaralhar!");
+                 setStatusMessage("Erro fatal no baralho!", true);
+                 endGame(null, true); return drawnCards;
+             }
+        }
+
+        // Compra a carta do topo do deck
+        const card = deck.pop();
+        if (card) {
+            player.hand.push(card);
+            drawnCards.push(card);
+        } else {
+            // Isso não deveria acontecer se as checagens acima funcionam
+            console.error("ERRO INESPERADO: deck.pop() retornou undefined mesmo com deck.length > 0!");
+            // Tenta continuar se possível, mas loga o erro grave.
+            break; // Interrompe o loop de compra atual
+        }
+    }
+
+    console.log(`Jogador ${playerId} comprou ${drawnCards.length} carta(s). Tamanho da mão: ${player.hand.length}. Deck restante: ${deck.length}.`);
+
+    // Lógica UNO: Se jogador comprou e tinha possibilidade de UNO, ele a perde
+    if (player.hand.length > 1 && canCallUno[playerId]) {
+        console.log(`Jogador ${playerId} comprou carta(s) e perdeu a condição de UNO.`);
+        canCallUno[playerId] = false;
+        unoCalled[playerId] = false; // Garante que o 'grito' seja resetado também
+        // Atualiza UI do botão UNO para o jogador humano
+        if (playerId === 0 && unoBtn) {
+            unoBtn.disabled = true;
+            unoBtn.classList.remove('can-press');
+            playerZoneElement?.classList.remove('has-uno'); // Remove badge visual
+        }
+         if (playerId === 1) {
+            opponentZoneElement?.classList.remove('has-uno'); // Remove badge visual bot
+         }
+    }
+
+    // Atualiza a interface se necessário e o jogo não acabou
+    if (update && !gameOver) {
+        updateUI();
+    }
+
+    return drawnCards;
+}
+
+/**
+ * Move as cartas da pilha de descarte (exceto a do topo) de volta para o baralho e o embaralha.
+ * @returns {boolean} True se o reembaralhamento foi bem-sucedido, False caso contrário.
+ */
+function reshuffleDiscardPile() {
+    console.log(`Tentando reembaralhar ${discardPile.length} cartas do descarte.`);
+    // Precisa de pelo menos 2 cartas no descarte para reembaralhar (1 fica no topo)
+    if (discardPile.length <= 1) {
+        console.warn("Não é possível reembaralhar: menos de 2 cartas no descarte.");
+        if (deckPileElement) deckPileElement.style.display = 'none'; // Esconde visualmente o deck vazio
+        return false;
+    }
+
+    // Guarda a carta do topo
+    const topCard = discardPile.pop();
+    console.log("Mantendo a carta do topo no descarte:", topCard?.id);
+
+    // Move o restante do descarte para o deck
+    deck = [...discardPile];
+    // Limpa o descarte, deixando apenas a carta do topo
+    discardPile = topCard ? [topCard] : [];
+
+    // Embaralha o novo deck
+    shuffleDeck(deck);
+
+    console.log(`Reembaralhamento concluído. Novo Deck: ${deck.length} cartas. Descarte: ${discardPile.length} carta(s).`);
+
+    // Garante que o monte de compra visual apareça se agora temos cartas
+    if (deck.length > 0 && deckPileElement) {
+        renderDeckPile(); // Re-renderiza o deck pile para mostrar a carta virada
+    }
+    setStatusMessage("O baralho foi reembaralhado.");
+    return true;
+}
+
+/**
+ * Verifica se uma carta específica pode ser jogada sobre a carta atual do topo do descarte.
+ * Leva em conta cor, valor, cartas especiais e estado de compra obrigatória (+2/+4).
+ * @param {Object} cardToPlay - A carta que o jogador tenta jogar.
+ * @returns {boolean} True se a carta é jogável, False caso contrário.
+ */
+function isCardPlayable(cardToPlay) {
+    if (gameOver || !cardToPlay) return false; // Jogo acabou ou carta inválida
+
+    const topDiscardCard = discardPile[discardPile.length - 1];
+     if (!topDiscardCard) { console.error("isCardPlayable: Descarte vazio inesperadamente!"); return false;} // Descarte nunca deveria estar vazio aqui
+
+    // Regra 1: Se há compra acumulada (mustDrawCards > 0)
+    if (mustDrawCards > 0) {
+        // Só pode jogar Wild+4 OU um Draw+2 da mesma cor (se o topo for Draw+2) ou valor? Não, valor ou Wild4 apenas.
+        // Oficialmente: Só pode jogar um +2 se a carta do topo for +2 (acumula), ou jogar um +4.
+         if (cardToPlay.value === 'wild4') return true; // Wild+4 pode ser jogado sobre +2 ou +4 acumulados
+         // Se a última carta foi +2, pode jogar outro +2 (qualquer cor)
+         if (currentValidValue === 'draw2' && cardToPlay.value === 'draw2') return true;
+        // Caso contrário, não pode jogar mais nada, tem que comprar
+        return false;
+    }
+
+    // Regra 2: Se NÃO há compra acumulada
+    // Carta Wild (Coringa normal) sempre pode ser jogada
+    if (cardToPlay.value === 'wild') return true;
+    // Carta Wild+4 pode ser jogada (mesmo sem compra acumulada), MAS atenção à regra opcional de ter outra jogável. Neste código, permitimos sempre.
+    if (cardToPlay.value === 'wild4') return true;
+
+    // Regra 3: Cartas normais/ação coloridas
+    // Jogável se a COR ou o VALOR/TIPO batem com a carta do topo do descarte
+    // Ou se a cor bate com a cor escolhida por um Wild anterior (currentValidColor)
+    return cardToPlay.color === currentValidColor || cardToPlay.value === currentValidValue;
+}
+
+/**
+ * Processa a jogada de uma carta por um jogador.
+ * Remove a carta da mão, adiciona ao descarte, verifica UNO e condição de vitória,
+ * e então aplica o efeito da carta jogada.
+ * @param {number} playerId - ID do jogador que está jogando.
+ * @param {number} cardIndex - Índice da carta na mão do jogador.
+ */
+function playCard(playerId, cardIndex) {
+    // Validações Iniciais
+    if (gameOver) { console.log("playCard cancelado: Jogo finalizado."); return; }
+    if (playerId !== currentPlayerIndex) { console.warn(`playCard bloqueado: Não é a vez do jogador ${playerId}. Vez de: ${currentPlayerIndex}.`); return; }
+    if (playerId === 0 && botThinking) { console.log("playCard bloqueado: Aguardando o Bot."); setStatusMessage("Aguarde a vez do Bot!", true); return; } // Evita clique duplo humano
+
+    const player = players[playerId];
+    // Valida jogador e índice da carta
+    if (!player || cardIndex < 0 || cardIndex >= player.hand.length || !player.hand[cardIndex]) {
+        console.error(`Jogada inválida: Jogador ${playerId}, Índice ${cardIndex}. Mão atual:`, player?.hand);
+        setStatusMessage("Erro interno: Tentativa de jogar carta inválida.", true);
+        return;
+    }
+    const card = player.hand[cardIndex];
+
+    // Verifica se a carta é jogável de acordo com as regras
+    if (!isCardPlayable(card)) {
+        console.log(`Carta ${card.id} (${card.color} ${card.value}) não é jogável sobre ${currentValidColor} ${currentValidValue}. Compra acumulada: ${mustDrawCards}`);
+        setStatusMessage("Esta carta não pode ser jogada agora!", true);
+        // Efeito visual de 'shake' na carta inválida (se for humano)
+        if (playerId === 0 && playerHandElement) {
+            const cardElem = playerHandElement.querySelector(`[data-id="${card.id}"]`);
+            if (cardElem) {
+                cardElem.style.animation = 'shake 0.5s ease-in-out';
+                // Remove a animação após terminar para poder aplicar de novo
+                setTimeout(() => { cardElem.style.animation = ''; }, 500);
+            }
+        }
+        return; // Interrompe a jogada
+    }
+
+    // Se a carta é jogável:
+    // 1. Remove da mão do jogador e adiciona ao descarte
+    const playedCard = player.hand.splice(cardIndex, 1)[0];
+    discardPile.push(playedCard);
+    console.log(`Jogador ${playerId} (${player.name}) jogou: ${playedCard.id} (${playedCard.color} ${playedCard.value}). Mão restante: ${player.hand.length} carta(s).`);
+
+    // 2. Resetar cor/valor válidos (será definido pelo efeito da carta jogada)
+    currentValidColor = null; // Será definido pelo efeito, especialmente para Wilds
+    currentValidValue = null;
+
+    // 3. Tratar estado UNO
+    // Se ficou com 1 carta: Habilita a possibilidade de gritar UNO (ainda não gritou)
+    if (player.hand.length === 1) {
+        console.log(`Jogador ${playerId} (${player.name}) ficou com 1 carta. Pode gritar UNO!`);
+        canCallUno[playerId] = true;  // Agora PODE gritar
+        unoCalled[playerId] = false; // Mas AINDA NÃO gritou (jogador precisa clicar/bot "decide")
+        // Se for o jogador humano, habilita o botão UNO
+        if (playerId === 0 && unoBtn) {
+            unoBtn.disabled = false;
+            unoBtn.classList.add('can-press');
+            console.log("Botão UNO habilitado para o jogador.");
+            // Opcional: Iniciar um timer curto para penalidade se não clicar
+            // startUnoPenaltyTimer(playerId);
+        } else if (playerId === 1) { // Bot automaticamente "grita" UNO ao ficar com 1 carta
+            console.log("Bot 'gritou' UNO automaticamente.");
+            unoCalled[playerId] = true; // Bot já gritou
+            // Atualiza UI para mostrar badge UNO do Bot
+            opponentZoneElement?.classList.add('has-uno');
+            setStatusMessage("Bot gritou UNO!");
+        }
+    }
+    // Se jogou e NÃO ficou com 1 carta, mas ANTES podia gritar UNO (ex: tinha 2, jogou 1 e esqueceu, agora tem 1), cancela estado UNO prévio
+    else if (player.hand.length !== 1 && canCallUno[playerId]) {
+         console.log(`Jogador ${playerId} jogou e não está mais na condição UNO (Mão: ${player.hand.length}).`);
+         canCallUno[playerId] = false;
+         unoCalled[playerId] = false;
+         if (playerId === 0 && unoBtn) { // Desabilita botão humano
+            unoBtn.disabled = true;
+            unoBtn.classList.remove('can-press');
+            playerZoneElement?.classList.remove('has-uno'); // Remove badge
+         }
+         if (playerId === 1) {
+             opponentZoneElement?.classList.remove('has-uno'); // Remove badge bot
+         }
+         // Opcional: cancelar timer de penalidade se existir
+         // cancelUnoPenaltyTimer(playerId);
+    }
+     // Se tinha mais de 1 carta e continua com mais de 1, não faz nada no estado UNO.
+
+    // 4. Atualizar a UI *antes* de aplicar o efeito (para mostrar a carta sendo jogada)
+    updateUI();
+
+    // 5. Aplicar o efeito da carta jogada (pode avançar o turno, pedir cor, etc.)
+    applyCardEffect(playedCard, playerId); // Importante: A aplicação do efeito agora é responsável por avançar o turno
+}
+
+/**
+ * Aplica o efeito da carta recém-jogada (Draw2, Skip, Reverse, Wild, Wild4)
+ * e, se aplicável, avança o turno para o próximo jogador.
+ * @param {Object} card - A carta que foi jogada.
+ * @param {number} casterPlayerId - O ID do jogador que jogou a carta.
+ */
+function applyCardEffect(card, casterPlayerId) {
+    if (gameOver || !card) return;
+
+    let advanceTurnNow = true;  // Se o turno deve avançar imediatamente após este efeito
+    let skipNextPlayer = false; // Se o efeito da carta é pular o próximo jogador
+    const caster = players[casterPlayerId];
+    // Calcula quem seria o próximo jogador ANTES de qualquer mudança de direção/pulo
+    const targetPlayerIndex = (casterPlayerId + gameDirection + players.length) % players.length;
+    const targetPlayer = players[targetPlayerIndex];
+
+    console.log(`Aplicando efeito da carta ${card.id} (${card.color} ${card.value}) jogada por ${caster?.name}. Próximo seria: ${targetPlayer?.name}`);
+
+    // 1. Atualizar Cor e Valor Válidos (Exceto para Wilds que precisam de escolha)
+    if (card.type !== 'wild') {
+        currentValidColor = card.color;
+        currentValidValue = card.value;
+        console.log(`Nova cor válida: ${currentValidColor}, Novo valor válido: ${currentValidValue}`);
+    } else {
+        // Para Wilds, o valor é definido ('wild' ou 'wild4'), mas a COR depende da escolha do jogador.
+        currentValidValue = card.value;
+         console.log(`Carta Wild jogada (${card.value}). Valor válido: ${currentValidValue}. Cor será definida.`);
+    }
+
+    // 2. Lidar com os Efeitos Específicos
+    switch (card.value) {
+        case 'draw2':
+            mustDrawCards += 2; // Acumula +2
+            playerMustPlayOrDraw = true; // Próximo jogador deve jogar +2/+4 ou comprar
+            setStatusMessage(`${caster?.name} jogou +2! ${targetPlayer?.name}, jogue +2/+4 ou compre ${mustDrawCards} cartas.`);
+            console.log(`Efeito +2. Compra acumulada: ${mustDrawCards}. Próximo jogador (${targetPlayerIndex}) deve jogar ou comprar.`);
+            // O turno avança normalmente para o próximo jogador decidir
+            break;
+
+        case 'wild4':
+            mustDrawCards += 4; // Acumula +4
+            playerMustPlayOrDraw = true; // Próximo jogador deve jogar +4 ou comprar
+            advanceTurnNow = false; // NÃO avança o turno ainda, espera a escolha da cor
+            setStatusMessage(`${caster?.name} jogou +4! ${targetPlayer?.name} terá que comprar ${mustDrawCards} (a menos que tenha +4). Escolha a nova cor.`);
+            console.log(`Efeito +4. Compra acumulada: ${mustDrawCards}. Jogador ${casterPlayerId} escolhe a cor.`);
+            // Solicitar escolha de cor (humano ou bot)
+            if (caster.isBot) {
+                botNextColorChoice = chooseBotColor(); // Bot decide a cor
+                // Simula um pequeno delay para escolha de cor do bot também
+                setTimeout(() => handleColorChoice(botNextColorChoice, casterPlayerId), 300);
+            } else {
+                promptColorChoice((chosenColor) => handleColorChoice(chosenColor, casterPlayerId)); // Humano escolhe
+            }
+            return; // Retorna aqui, handleColorChoice avançará o turno
+
+        case 'skip':
+            // Só pula se não houver compra acumulada
+            if (mustDrawCards === 0) {
+                skipNextPlayer = true;
+                setStatusMessage(`${caster?.name} jogou Pular! ${targetPlayer?.name} perde a vez.`);
+                console.log(`Efeito Skip. Próximo jogador (${targetPlayerIndex}) será pulado.`);
+            } else {
+                 console.log("Efeito Skip ignorado devido à compra acumulada.");
+                 // A carta ainda define cor/valor, mas não pula.
+            }
+            // O turno avança, mas o advanceTurn pulará um jogador extra se skipNextPlayer=true
+            break;
+
+        case 'reverse':
+             // Só reverte/pula se não houver compra acumulada
+            if (mustDrawCards === 0) {
+                if (players.length === 2) { // Com 2 jogadores, Reverse funciona como Skip
+                    skipNextPlayer = true;
+                    setStatusMessage(`${caster?.name} jogou Reverter! ${targetPlayer?.name} perde a vez.`);
+                    console.log(`Efeito Reverse (2 jogadores). Funciona como Skip. Próximo jogador (${targetPlayerIndex}) será pulado.`);
+                } else { // Com 3+ jogadores, inverte a direção
+                    gameDirection *= -1;
+                    setStatusMessage(`${caster?.name} jogou Reverter! A ordem do jogo foi invertida.`);
+                    console.log(`Efeito Reverse. Nova direção: ${gameDirection === 1 ? 'Horário' : 'Anti-horário'}.`);
+                    // O turno avança na nova direção
+                }
+            } else {
+                 console.log("Efeito Reverse ignorado devido à compra acumulada.");
+                  // A carta ainda define cor/valor, mas não reverte/pula.
+            }
+            // O turno avança, considerando a nova direção ou o pulo (se skipNextPlayer=true)
+            break;
+
+        case 'wild':
+            // Só pede cor se não houver compra acumulada
+            if (mustDrawCards === 0) {
+                advanceTurnNow = false; // NÃO avança o turno ainda, espera a escolha da cor
+                setStatusMessage(`${caster?.name} jogou Coringa! Escolha a nova cor.`);
+                console.log(`Efeito Wild. Jogador ${casterPlayerId} escolhe a cor.`);
+                 // Solicitar escolha de cor (humano ou bot)
+                 if (caster.isBot) {
+                     botNextColorChoice = chooseBotColor(); // Bot decide
+                      setTimeout(() => handleColorChoice(botNextColorChoice, casterPlayerId), 300);
+                 } else {
+                     promptColorChoice((chosenColor) => handleColorChoice(chosenColor, casterPlayerId)); // Humano escolhe
+                 }
+                 return; // Retorna aqui, handleColorChoice avançará o turno
+            } else {
+                console.log("Efeito Wild ignorado (escolha de cor) devido à compra acumulada.");
+                // Wild ainda conta como valor 'wild', mas cor não pode ser escolhida. Mantém a cor anterior? Não, vira 'special'.
+                // A carta foi jogada, mas não permite escolha de cor. O jogo continua com o + acumulado.
+                 currentValidColor = 'special'; // A cor anterior não importa mais, próximo deve jogar 'wild' ou comprar
+                currentValidColor = 'special'; // A cor anterior não importa mais, próximo deve jogar 'wild' ou comprar
+            currentValidValue = 'wild';
+                 // Turno avança normalmente.
+            }
+            break;
+
+        default:
+            // Cartas numéricas não têm efeito especial além de definir cor/valor
+            console.log(`Carta numérica ${card.value} jogada. Sem efeito especial.`);
+            // O turno avança normalmente
+            break;
+    }
+
+    // 3. Checar Vitória e Avançar Turno (se não interrompido por escolha de cor)
+    if (advanceTurnNow) {
+        // Primeiro, verifica se QUEM JOGOU venceu
+        if (checkWinCondition(casterPlayerId)) {
+            endGame(casterPlayerId); // Fim de jogo, vencedor é quem jogou
+        } else {
+            // Se não venceu, avança o turno para o próximo jogador
+            // Passa `skipNextPlayer` para advanceTurn saber se precisa pular alguém extra
+             // Passa `true` para checkPenalty para verificar UNO de quem acabou de jogar
+            advanceTurn(true, skipNextPlayer);
+        }
+    }
+}
+
+
+/**
+ * Processa a escolha de cor feita após jogar uma carta Wild ou Wild4.
+ * Atualiza a cor válida, fecha o modal e avança o turno.
+ * @param {string} chosenColor - A cor escolhida ('red', 'blue', 'green', 'yellow').
+ * @param {number} chooserId - O ID do jogador que escolheu a cor.
+ */
+function handleColorChoice(chosenColor, chooserId) {
+    // Validação
+    if (gameOver) { console.log("handleColorChoice cancelado: Jogo finalizado."); return; }
+    if (!chosenColor || !COLORS.includes(chosenColor)) {
+        console.error("handleColorChoice: Escolha de cor inválida ou cancelada.", chosenColor);
+        // O que fazer aqui? Idealmente, forçar uma escolha ou pegar uma cor padrão.
+        // Por simplicidade, se inválido, vamos pegar uma aleatória.
+        chosenColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+        console.warn("Cor inválida recebida, escolhendo cor aleatória:", chosenColor);
+    }
+     if (wildColorChoiceCallback === null && chooserId === 0) {
+         console.warn("handleColorChoice: Chamada inesperada sem callback pendente (jogador 0).");
+         // Poderia ser um clique duplo no modal? Ignora se não esperado.
+         return;
+     }
+    if (botNextColorChoice === null && chooserId === 1) {
+        console.warn("handleColorChoice: Chamada inesperada sem escolha pendente do bot (jogador 1).");
+        return;
+    }
+
+
+    console.log(`Jogador ${chooserId} escolheu a cor: ${chosenColor}.`);
+    currentValidColor = chosenColor; // Define a cor válida para a próxima jogada
+
+    // Limpa estado de espera pela cor
+    wildColorChoiceCallback = null;
+    botNextColorChoice = null;
+    if (colorPickerModal) colorPickerModal.style.display = 'none'; // Fecha o modal
+
+    // Atualiza a UI para refletir a cor escolhida (ex: brilho na carta do descarte)
+    updateUI();
+
+    const chooser = players[chooserId];
+    const prefix = chooser?.isBot ? "O Bot escolheu a cor" : "Você escolheu a cor";
+    let suffix = "";
+
+    // Se a escolha veio de um +4 (ou +2 se bugado?), informa o próximo jogador
+    if (mustDrawCards > 0) {
+        const nextPlayerIndex = (chooserId + gameDirection + players.length) % players.length;
+        const nextPlayer = players[nextPlayerIndex];
+        suffix = `! É a vez de ${nextPlayer?.name}, jogue +${currentValidValue === 'draw2' ? 2 : 4} ou compre ${mustDrawCards}!`;
+    } else {
+        suffix = ". O jogo continua."; // Mensagem padrão
+    }
+    setStatusMessage(`${prefix} ${chosenColor.toUpperCase()}${suffix}`);
+
+    // Importante: Verifica se quem jogou o Wild/Wild4 e escolheu a cor venceu
+    if (checkWinCondition(chooserId)) {
+        endGame(chooserId);
+    } else {
+        // Se não venceu, avança o turno
+        // Aqui, não há skip (skipNextPlayer=false) vindo da escolha de cor
+        // Checa penalidade de UNO de quem acabou de jogar? Sim (checkPenalty=true).
+        advanceTurn(true, false);
+    }
+}
+
+/**
+ * Mostra o modal para o jogador humano escolher uma cor.
+ * Bloqueia outras ações enquanto o modal estiver ativo.
+ * @param {function} callback - Função a ser chamada com a cor escolhida.
+ */
+function promptColorChoice(callback) {
+    if (gameOver || wildColorChoiceCallback) return; // Não abre se jogo acabou ou já tem um modal aberto
+
+    console.log("Exibindo modal de escolha de cor para jogador humano.");
+    wildColorChoiceCallback = callback; // Armazena o callback
+
+    // Bloqueia interações do jogo enquanto escolhe
+    if (drawCardBtn) drawCardBtn.disabled = true;
+    if (unoBtn) { unoBtn.disabled = true; unoBtn.classList.remove('can-press'); }
+    // Desabilita clique nas cartas da mão
+    if (playerHandElement) {
+        playerHandElement.querySelectorAll('.card').forEach(cardElem => {
+            cardElem.style.pointerEvents = 'none'; // Impede clique
+             cardElem.classList.remove('card--playable'); // Remove highlight
+        });
+    }
+     if (deckPileElement) deckPileElement.style.cursor = 'default'; // Impede clique no deck
+
+    // Mostra o modal
+    if (colorPickerModal) colorPickerModal.style.display = 'flex';
+}
+
+/**
+ * Função chamada quando um botão de cor no modal é clicado.
+ * Passa a cor escolhida para o callback armazenado.
+ * @param {string} color - A cor do botão clicado ('red', 'blue', etc.).
+ */
+function selectColor(color) {
+    if (!gameOver && wildColorChoiceCallback) {
+         console.log(`Jogador humano clicou na cor: ${color}`);
+        wildColorChoiceCallback(color); // Chama o callback que estava esperando (handleColorChoice)
+        wildColorChoiceCallback = null; // Limpa o callback após usar
+    } else {
+        console.warn("selectColor chamado, mas não havia callback esperando ou o jogo acabou.");
+    }
+}
+
+/**
+ * Passa o turno para o próximo jogador na ordem atual.
+ * Lida com pulos de carta, aplica compras forçadas e verifica penalidade de UNO.
+ * @param {boolean} checkUnoPenaltyForPreviousPlayer - Se deve verificar a penalidade de UNO do jogador que acabou de jogar.
+ * @param {boolean} cardEffectSkippedPlayer - Se o avanço foi causado por uma carta Skip/Reverse(2p).
+ */
+function advanceTurn(checkUnoPenaltyForPreviousPlayer = true, cardEffectSkippedPlayer = false) {
+    if (gameOver) return;
+
+    const previousPlayerId = currentPlayerIndex;
+    const previousPlayer = players[previousPlayerId];
+    console.log(`--- Avançando Turno de P${previousPlayerId} (${previousPlayer?.name}) ---`);
+    console.log(`Detalhes: Checar Penalidade UNO=${checkUnoPenaltyForPreviousPlayer}, Pulo por Carta=${cardEffectSkippedPlayer}, Comprar Obrigatório=${mustDrawCards}, Direção=${gameDirection}`);
+
+    // 1. Limpa indicador de turno ativo da UI
+    playerZoneElement?.classList.remove('active-turn');
+    opponentZoneElement?.classList.remove('active-turn');
+
+    // 2. Checar Penalidade UNO do jogador ANTERIOR (se aplicável)
+    // Isso é feito ANTES de mudar o currentPlayerIndex
+    if (checkUnoPenaltyForPreviousPlayer) {
+        checkUnoPenalty(previousPlayerId); // Verifica se esqueceu de gritar UNO
+    }
+    // Se a penalidade de UNO causou o fim do jogo (improvável, mas possível), para aqui.
+    if(gameOver) return;
+
+    // 3. Determinar o ÍNDICE do PRÓXIMO jogador
+    let nextPlayerIndex = (previousPlayerId + gameDirection + players.length) % players.length;
+    console.log(`Próximo jogador (base): Índice ${nextPlayerIndex}`);
+
+    // Se o turno está avançando porque uma carta Skip/Reverse(2p) foi jogada,
+    // pula este jogador que seria o próximo.
+    if (cardEffectSkippedPlayer) {
+        console.log(`Jogador ${nextPlayerIndex} (${players[nextPlayerIndex]?.name}) está sendo pulado devido a efeito de carta.`);
+        setStatusMessage(`${players[nextPlayerIndex]?.name} perdeu a vez!`); // Mensagem mais clara sobre o pulo
+        // Pula para o jogador seguinte na ordem
+        nextPlayerIndex = (nextPlayerIndex + gameDirection + players.length) % players.length;
+        console.log(`Jogador efetivamente próximo após o pulo: Índice ${nextPlayerIndex}`);
+        // Resetar flags de compra se pulamos alguém por carta (o pulado não pode acumular)
+        // playerMustPlayOrDraw = false; // Não resetar aqui, pode ter + acumulado pro proximo ainda? Sim. Não reseta.
+        // mustDrawCards = 0; // Não reseta aqui. Se pulou alguem por skip normal, nao tinha + acumulado. Se foi skip sobre +2/4, nao devia ter pulado.
+                           // O reset da compra ocorre se ela for EFETIVADA (compra forçada abaixo).
+    }
+
+    // 4. Atualizar o Jogador Atual
+    currentPlayerIndex = nextPlayerIndex;
+    const currentPlayer = players[currentPlayerIndex];
+     if (!currentPlayer) { // Verificação de segurança
+        console.error(`ERRO FATAL: Próximo jogador (Índice ${currentPlayerIndex}) é inválido!`);
+        setStatusMessage("Erro crítico ao avançar o turno!", true);
+        endGame(null, true); return;
+    }
+    console.log(`>>> Agora é a vez de P${currentPlayerIndex} (${currentPlayer.name}). Mão: ${currentPlayer.hand.length}.`);
+
+    // 5. Aplicar Indicador de Turno na UI para o NOVO jogador
+    if (!gameOver) {
+        if (currentPlayerIndex === 0) playerZoneElement?.classList.add('active-turn');
+        else opponentZoneElement?.classList.add('active-turn');
+    }
+
+    // 6. Lidar com Compra Obrigatória para o Jogador ATUAL
+    playerMustPlayOrDraw = (mustDrawCards > 0); // Confirma se AINDA há compra obrigatória para o jogador que acabou de receber a vez
+
+    if (playerMustPlayOrDraw) {
+        console.log(`Jogador ${currentPlayerIndex} enfrenta ${mustDrawCards} cartas para comprar.`);
+        // Verifica se o jogador atual PODE jogar uma carta para evitar/acumular a compra
+        // Pode jogar: Wild+4 (sempre) OU Draw+2 (se o último jogado foi Draw+2)
+        const canCounter = currentPlayer.hand.some(card =>
+            card && (card.value === 'wild4' || (card.value === 'draw2' && currentValidValue === 'draw2'))
+        );
+
+        if (canCounter) {
+            // Se pode jogar, apenas informa o jogador
+             setStatusMessage(`Vez de ${currentPlayer.name}! Jogue +${currentValidValue==='draw2'?2:4} ou compre ${mustDrawCards} cartas!`);
+             console.log(`Jogador ${currentPlayerIndex} pode jogar +2 ou +4 para combater a compra.`);
+             // Não faz mais nada, o jogador (ou bot) decidirá na sua vez normal.
+        } else {
+            // Se NÃO pode jogar, força a compra e PASSA A VEZ
+            console.log(`Jogador ${currentPlayerIndex} não tem +2 ou +4. Compra forçada de ${mustDrawCards} cartas.`);
+            setStatusMessage(`${currentPlayer.name} compra ${mustDrawCards} carta(s) e perde a vez.`);
+
+            const cardsToDraw = mustDrawCards; // Guarda a quantidade antes de resetar
+            mustDrawCards = 0;             // Reseta a contagem acumulada APÓS a compra
+            playerMustPlayOrDraw = false;  // Não precisa mais jogar ou comprar após a compra
+
+            // Executa a compra (sem update da UI aqui para fazer junto com o avanço)
+            const drawnCount = drawCardFromDeck(currentPlayerIndex, cardsToDraw, false).length;
+
+            // Verifica se a compra forçada causou fim do jogo (erro / empate)
+            if(gameOver) return;
+
+            // ATUALIZA a UI *antes* de passar o turno novamente (para mostrar cartas compradas)
+            updateUI();
+
+             // Delay leve para ver a compra e a mensagem antes de pular
+             setTimeout(() => {
+                 if (gameOver) return;
+                console.log(`Passando a vez do Jogador ${currentPlayerIndex} que comprou ${drawnCount}/${cardsToDraw} cartas.`);
+                // Pula a vez de quem comprou
+                // Não precisa checar UNO de quem comprou (checkPenalty=false)
+                // Simula um skip (cardEffectSkippedPlayer=true) para pular este jogador
+                advanceTurn(false, true);
+             }, 750); // Delay de 0.75s para o pulo
+
+            return; // Retorna para não executar o resto da função (ativação do turno normal)
+        }
+    } else {
+         // Se não há compra obrigatória, apenas informa que é a vez do jogador
+         setStatusMessage(`É a vez de ${currentPlayer.name}!`);
+    }
+
+    // 7. Atualizar a UI Geral (se não foi atualizada pela compra forçada)
+    // Isso é importante para habilitar/desabilitar botões e destacar cartas do humano
+    if (!gameOver) { // Evita update desnecessário se jogo já acabou
+         updateUI();
+    }
+
+
+    // 8. Ativar o Turno do Jogador Atual (se não houve compra forçada/pulo)
+    if (currentPlayer.isBot && !botThinking && !gameOver) {
+        botThinking = true;
+        triggerBotTurn(); // Chama a lógica do bot
+    } else if (!currentPlayer.isBot && !gameOver) {
+        botThinking = false; // Garante que flag está correta
+        // updateUI() já foi chamado, jogador humano pode jogar
+        console.log("Turno do jogador humano liberado.");
+    }
+    console.log(`--- Fim Advance Turn para P${currentPlayerIndex} ---`);
+}
+
+
+/**
+ * Verifica se um jogador atingiu a condição de vitória (0 cartas na mão).
+ * Aplica penalidade se esqueceu de gritar UNO.
+ * @param {number} playerId - ID do jogador a verificar.
+ * @returns {boolean} True se o jogador venceu, False caso contrário.
+ */
+function checkWinCondition(playerId) {
+    if (gameOver) return true; // Se jogo já acabou, considera "vitória" checada
+    const player = players[playerId];
+    if (!player) return false;
+
+    // Condição principal: Mão vazia
+    if (player.hand.length === 0) {
+        // Se chegou a 0 cartas, precisa ter gritado UNO na jogada anterior (quando ficou com 1)
+        if (unoCalled[playerId]) {
+            console.log(`🎉 CONDIÇÃO DE VITÓRIA ATINGIDA! Jogador ${playerId} (${player.name}) venceu com UNO chamado corretamente! 🎉`);
+            return true; // Vitória confirmada!
+        } else {
+            // Esqueceu de gritar UNO quando ficou com 1 carta? Aplica penalidade.
+            // canCallUno[playerId] deveria ser true aqui se ele TINHA 1 carta antes desta jogada
+             // Mas mesmo se não for (caso raro/bug), se tem 0 e não gritou, penaliza.
+            console.warn(`Jogador ${playerId} (${player.name}) jogou a última carta, mas NÃO gritou UNO! Penalidade: +2 cartas.`);
+            setStatusMessage(`${player.name} esqueceu de gritar UNO! Compra 2 cartas.`, true);
+            drawCardFromDeck(playerId, 2, true); // Compra 2 cartas de penalidade
+            // A compra pode fazer o jogo empatar se não houver cartas, drawCard trata isso.
+             if (gameOver) return true; // Se empatou, considera 'win checked'
+
+            // Reseta flags UNO após penalidade
+            canCallUno[playerId] = false;
+            unoCalled[playerId] = false;
+             if(playerId === 0 && unoBtn) { unoBtn.disabled=true; unoBtn.classList.remove('can-press'); }
+
+            return false; // Não venceu devido à penalidade
+        }
+    }
+    // Se ainda tem cartas na mão
+    return false;
+}
+
+/**
+ * Finaliza a partida, exibe a mensagem de vencedor ou empate e mostra botão para reiniciar.
+ * @param {number | null} winnerId - ID do jogador vencedor, ou null se for empate/erro.
+ * @param {boolean} [isDrawOrError=false] - True se o jogo terminou em empate ou por erro irrecuperável.
+ */
+function endGame(winnerId, isDrawOrError = false) {
+     if (gameOver) return; // Evita execuções múltiplas
+     gameOver = true;
+     botThinking = false; // Para qualquer processamento do bot
+     console.log("================ FIM DE JOGO ================");
+
+     // 1. Limpar Indicadores Visuais de Jogo Ativo
+     playerZoneElement?.classList.remove('active-turn', 'has-uno');
+     opponentZoneElement?.classList.remove('active-turn', 'has-uno');
+
+     // 2. Desabilitar Interações do Jogo
+     if (drawCardBtn) drawCardBtn.disabled = true;
+     if (unoBtn) { unoBtn.disabled = true; unoBtn.classList.remove('can-press'); }
+     // Remove interatividade das cartas do jogador
+     playerHandElement?.querySelectorAll('.card').forEach(card => {
+         card.style.pointerEvents = 'none';
+         card.classList.remove('card--playable');
+         card.style.cursor = 'default';
+     });
+     // Remove interatividade do monte de compra
+     if (deckPileElement) deckPileElement.style.cursor = 'default';
+     // Fecha o modal de cor, caso esteja aberto
+     if (colorPickerModal) colorPickerModal.style.display = 'none';
+      wildColorChoiceCallback = null; // Limpa callback pendente
+
+     // 3. Definir Mensagem Final
+     let finalMsg = "Fim de Jogo!";
+     let isWinner = false;
+     if (isDrawOrError) {
+         // Se for erro crítico, a mensagem pode já ter sido definida como erro
+         if (!gameStatusElement?.classList.contains('error-message')) {
+            finalMsg = "EMPATE! 🏳️ Ninguém venceu.";
+         } else {
+             finalMsg = gameStatusElement.firstChild?.textContent || "Erro crítico! Fim de Jogo."; // Mantém msg de erro se já definida
+         }
+         console.log("Jogo finalizado sem vencedor (Empate ou Erro).");
+     } else if (winnerId !== null && players[winnerId]) {
+         const winner = players[winnerId];
+         finalMsg = `🎉 ${winner.name.toUpperCase()} VENCEU! 🎉`;
+         isWinner = true;
+         console.log(`Vencedor: Jogador ${winnerId} (${winner.name})`);
+         // Limpa visualmente a mão do vencedor
+         if (winnerId === 0 && playerHandElement) {
+            // Efeito visual opcional de cartas "voando"
+            Array.from(playerHandElement.children).forEach((cardEl, index) => {
+                cardEl.style.animation = `card-fly-out 0.5s ${index * 0.05}s ease-out forwards`;
+            });
+            setTimeout(() => { if (playerHandElement) playerHandElement.innerHTML = ''; }, 500 + playerHandElement.children.length * 50); // Limpa após animação
+         } else if (winnerId === 1 && opponentHandElement) {
+            opponentHandElement.setAttribute('data-count', '0'); // Zera contador do bot
+             opponentHandElement.style.opacity = '0'; // Esconde carta placeholder
+             setTimeout(() => { if(opponentHandElement) opponentHandElement.style.opacity = '1';}, 1000); // Reaparece depois (opcional)
+         }
+     } else {
+         console.log("Fim de jogo chamado sem um vencedor claro ou empate/erro.");
+         // Mantém a mensagem padrão "Fim de Jogo!"
+     }
+
+     // 4. Exibir Mensagem Final no Status
+      // Limpa timers pendentes (ex: bot pensando) - A flag gameOver deve fazer isso, mas garantia extra.
+     // clearTimeout(botTimer); // Se estivesse usando um timer explícito
+     setStatusMessage(finalMsg, gameStatusElement?.classList.contains('error-message'), isWinner); // Usa isWinner para aplicar classe de vencedor
+
+     // 5. Adicionar Botão "Jogar Novamente" na área de status (se não existir)
+     let restartBtnStatus = gameStatusElement?.querySelector('.btn--restart');
+     if (gameStatusElement && !restartBtnStatus) {
+         // Adiciona uma quebra de linha antes do botão para espaçamento
+         const br = document.createElement('br');
+         gameStatusElement.appendChild(br);
+         // Cria o botão
+         restartBtnStatus = document.createElement('button');
+         restartBtnStatus.textContent = 'Jogar Novamente';
+         restartBtnStatus.className = 'btn btn--restart'; // Classe específica para este botão
+         restartBtnStatus.onclick = startGame; // Reatribui o evento de clique para reiniciar
+         gameStatusElement.appendChild(restartBtnStatus);
+         console.log("Botão 'Jogar Novamente' adicionado à área de status.");
+     }
+     // Garante que o botão de reiniciar do TOPO ainda funcione
+      if(restartGameBtnTop) restartGameBtnTop.disabled = false;
+}
+
+
+/**
+ * Atualiza todos os componentes visuais da interface do jogo.
+ * Mãos dos jogadores, pilhas de descarte/compra, botões, status, etc.
+ */
+function updateUI() {
+    // Não atualiza se o jogo acabou (exceto para o estado final em endGame)
+    if (gameOver && !gameStatusElement?.querySelector('.btn--restart')) { // Permite último update do endGame
+       // console.log("updateUI bloqueado: Jogo finalizado."); // Log muito frequente, desabilitar
+       return;
+    }
+    // Validação básica dos dados
+     if (!players || players.length < 2 || !discardPile || !deck) {
+        console.error("updateUI: Dados de jogo inválidos ou incompletos.");
+        return;
+     }
+
+    // 1. Renderizar áreas principais
+    renderPlayerHand();     // Mão do jogador humano
+    renderOpponentHand();   // Contador de cartas do bot
+    renderDiscardPile();    // Carta do topo e efeito de pilha
+    renderDeckPile();       // Baralho (carta virada ou placeholder)
+
+    // 2. Atualizar Estado Visual dos Jogadores (Badges UNO)
+    // Jogador Humano
+    const playerHasUnoState = players[0]?.hand.length === 1 && unoCalled[0];
+    if (playerZoneElement) playerZoneElement.classList.toggle('has-uno', playerHasUnoState);
+    // Bot
+    const botHasUnoState = players[1]?.hand.length === 1 && unoCalled[1];
+     if (opponentZoneElement) opponentZoneElement.classList.toggle('has-uno', botHasUnoState);
+
+
+    // 3. Atualizar Estado dos Botões de Ação e Destaques (Jogador Humano)
+    if (currentPlayerIndex === 0 && !botThinking && !gameOver) { // Vez do humano, bot não pensando, jogo ativo
+        // Botão Comprar Carta
+        const canDrawFromDeck = deck.length > 0 || discardPile.length > 1; // Pode comprar OU reembaralhar
+        if (drawCardBtn) {
+             // Habilitado SE NÃO for obrigado a jogar/comprar (+acumulado) E SE houver cartas para comprar/reembaralhar
+             drawCardBtn.disabled = playerMustPlayOrDraw || !canDrawFromDeck;
+             // Texto do botão pode mudar se for reembaralhar? Não, handleDrawClick trata isso.
+        }
+
+        // Botão UNO!
+        if (unoBtn) {
+            // Habilitado SE PODE gritar (tem 1 carta) E AINDA NÃO gritou
+            const canPressUno = canCallUno[0] && !unoCalled[0];
+            unoBtn.disabled = !canPressUno;
+            unoBtn.classList.toggle('can-press', canPressUno); // Aplica/remove classe para animação/estilo
+        }
+
+        // Destacar cartas jogáveis na mão
+        highlightPlayableCards();
+
+         // Habilitar/Desabilitar clique no Deck Pile
+        if (deckPileElement) deckPileElement.style.cursor = !playerMustPlayOrDraw && canDrawFromDeck ? 'pointer' : 'default';
+
+    } else { // Não é a vez do humano OU bot está pensando OU jogo acabou
+        // Desabilitar tudo
+        if (drawCardBtn) drawCardBtn.disabled = true;
+        if (unoBtn) {
+            unoBtn.disabled = true;
+            unoBtn.classList.remove('can-press');
+        }
+        // Remover destaque e pointer events das cartas
+        playerHandElement?.querySelectorAll('.card').forEach(cardElem => {
+             cardElem.classList.remove('card--playable');
+             cardElem.style.pointerEvents = 'none';
+             cardElem.style.cursor = 'default';
+        });
+        if (deckPileElement) deckPileElement.style.cursor = 'default';
+    }
+
+    // 4. Garantir que Modal de Cor está fechado se não for necessário
+    if (!wildColorChoiceCallback && colorPickerModal && colorPickerModal.style.display !== 'none') {
+        colorPickerModal.style.display = 'none';
+    }
+}
+
+
+/** Renderiza as cartas na mão do jogador humano. */
+function renderPlayerHand() {
+    if (!playerHandElement || !players?.[0]) return;
+    const hand = players[0].hand;
+    // Usar DocumentFragment para performance ao adicionar múltiplos elementos
+    const frag = document.createDocumentFragment();
+    hand.forEach(card => {
+        if (card) {
+            // O terceiro argumento true indica que é uma carta na mão do jogador (adiciona listener)
+            frag.appendChild(createCardElement(card, card.id, true));
+        } else {
+             console.warn("Carta nula/inválida encontrada na mão do jogador 0.");
+        }
+    });
+    playerHandElement.innerHTML = ''; // Limpa mão antiga
+    playerHandElement.appendChild(frag); // Adiciona todas as novas cartas
+}
+
+/** Renderiza o verso da carta do oponente com a contagem de cartas. */
+function renderOpponentHand() {
+    if (opponentHandElement && players?.[1]) {
+        const handSize = players[1].hand.length;
+        opponentHandElement.setAttribute('data-count', String(Math.max(0, handSize)));
+         // Mostra/Esconde a carta placeholder se o bot tiver 0 cartas
+        opponentHandElement.style.display = handSize > 0 ? 'flex' : 'none';
+        if (handSize === 0 && opponentZoneElement?.querySelector('.hand-area')) {
+             // Opcional: Adicionar um placeholder se a mão está vazia?
+            // opponentZoneElement.querySelector('.hand-area').innerHTML = '<div class="card--placeholder">Vazio</div>';
+        } else if (handSize > 0 && opponentZoneElement?.querySelector('.hand-area .card--placeholder')) {
+            // Remover placeholder se existia
+           // const placeholder = opponentZoneElement.querySelector('.hand-area .card--placeholder');
+           // if(placeholder) placeholder.remove();
+        }
+    } else if (opponentHandElement) {
+        // Estado inicial ou erro, esconde ou mostra contagem 0
+        opponentHandElement.setAttribute('data-count', '0');
+        opponentHandElement.style.display = 'none';
+    }
+}
+
+/** Renderiza a pilha de descarte com a carta do topo e efeito visual de pilha. */
+function renderDiscardPile() {
+    if (!discardPileElement) return;
+    discardPileElement.innerHTML = ''; // Limpa área de descarte
+
+    if (discardPile.length === 0) {
+        // Se vazia, mostra placeholder
+        discardPileElement.innerHTML = '<div class="card card--placeholder"><span>Descarte</span></div>';
+        return;
+    }
+
+    // Pega a carta do topo
+    const topCard = discardPile[discardPile.length - 1];
+    if (!topCard) { // Verificação de segurança
+         console.error("renderDiscardPile: Top card inválido ou nulo.");
+         discardPileElement.innerHTML = '<div class="card card--placeholder"><span>Erro</span></div>';
+         return;
+     }
+
+    // Cria o elemento HTML para a carta do topo
+    // O ID DOM é diferenciado para não conflitar com cartas na mão
+    const topElem = createCardElement(topCard, topCard.id + '-discard', false); // false = não é clicável na mão
+    topElem.style.position = 'relative'; // Para z-index funcionar e badge posicionar
+    topElem.style.zIndex = '1';       // Garante que fique acima das cartas "empilhadas"
+
+    // Adiciona brilho baseado na cor válida atual (se for uma cor do jogo)
+    if (currentValidColor && COLORS.includes(currentValidColor)) {
+        topElem.style.boxShadow = `0 0 10px 3px var(--uno-${currentValidColor}), 3px 3px 5px rgba(0,0,0,.3)`;
+        topElem.style.borderColor = `var(--uno-${currentValidColor})`;
+        // Classe CSS também pode controlar isso (ver style.css -> discard-pile > .card:last-child[style*="box-shadow"])
+    } else {
+         topElem.style.boxShadow = '3px 3px 5px rgba(0,0,0,.3)'; // Sombra padrão
+         topElem.style.borderColor = 'var(--card-border)';
+    }
+
+
+    // Adiciona badge de +X se houver compra acumulada
+    if (mustDrawCards > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'draw-count-badge';
+        badge.textContent = `+${mustDrawCards}`;
+        topElem.appendChild(badge);
+    }
+
+    // Cria efeito de pilha com as cartas abaixo do topo (máx 2 para visual)
+    const stackFrag = document.createDocumentFragment();
+    const numStacked = Math.min(discardPile.length - 1, 2); // Mostra até 2 cartas abaixo
+    for (let i = 1; i <= numStacked; i++) {
+        const belowCard = discardPile[discardPile.length - 1 - i];
+        if (!belowCard) continue; // Pula se carta for inválida
+        // Cria elemento para carta "abaixo"
+        const belowElem = createCardElement(belowCard, belowCard.id + '-stack-' + i, false);
+        // Estilos para criar o efeito de pilha via CSS seria melhor, mas aqui um exemplo inline:
+        belowElem.style.position = 'absolute';
+        belowElem.style.top = '0'; belowElem.style.left = '0'; // Alinha com o container
+        belowElem.style.zIndex = `${-i}`; // Empilha para trás
+        belowElem.style.opacity = `${1 - (i * 0.3)}`; // Mais transparente quanto mais fundo
+        // Transformação para parecer desalinhado (usando nth-child no CSS é mais limpo)
+         belowElem.style.transform = `translateX(${i * (i % 2 === 0 ? -1 : 1) * 2.5}px) translateY(${i * 2.5}px) rotate(${(i % 2 === 0 ? -1 : 1) * i * 3}deg)`;
+         belowElem.style.filter = `blur(${i*0.5}px)`; // Efeito de blur
+         stackFrag.appendChild(belowElem);
+    }
+
+    // Adiciona primeiro as cartas empilhadas (fundo) e depois a do topo
+    discardPileElement.appendChild(stackFrag);
+    discardPileElement.appendChild(topElem);
+}
+
+/** Renderiza a pilha de compra (deck) - mostra verso ou placeholder. */
+function renderDeckPile() {
+    if (!deckPileElement) return;
+    deckPileElement.innerHTML = ''; // Limpa área do deck
+
+    if (deck.length > 0) {
+        // Se há cartas no deck, mostra o verso da carta
+        const backCard = document.createElement('div');
+        backCard.className = 'card card--back';
+        // Adiciona ID ou data attribute se precisar referenciar depois
+        backCard.id = 'deck-back-card';
+        deckPileElement.appendChild(backCard);
+        deckPileElement.style.display = 'block'; // Garante visibilidade
+
+        // Define cursor e título baseado na possibilidade de comprar
+        const canDrawNow = (currentPlayerIndex === 0 && !botThinking && !playerMustPlayOrDraw && !gameOver);
+        deckPileElement.style.cursor = canDrawNow ? 'pointer' : 'default';
+        deckPileElement.title = canDrawNow ? 'Comprar Carta' : 'Baralho';
+
+    } else {
+        // Se deck está vazio, verifica se PODE reembaralhar
+        const canReshuffle = discardPile.length > 1;
+        if (canReshuffle) {
+            // Mostra placeholder indicando que pode reembaralhar ao clicar
+            deckPileElement.innerHTML = '<div class="card card--placeholder card--reshuffle"><span>Baralho Vazio<br>(Clique para Reembaralhar e Comprar)</span></div>';
+            deckPileElement.style.display = 'block';
+             // Permite clicar para reembaralhar apenas na vez do humano, se não obrigado a jogar +
+            const canClickReshuffle = (currentPlayerIndex === 0 && !botThinking && !playerMustPlayOrDraw && !gameOver);
+            deckPileElement.style.cursor = canClickReshuffle ? 'pointer' : 'default';
+            deckPileElement.title = canClickReshuffle ? 'Reembaralhar e Comprar Carta' : 'Baralho Vazio';
+        } else {
+            // Se não pode reembaralhar (poucas cartas no descarte), esconde o deck pile
+            deckPileElement.style.display = 'none';
+             console.log("Render deck: Vazio e impossível reembaralhar.");
+        }
+    }
+}
+
+/**
+ * Cria e retorna um elemento DIV HTML representando uma carta de UNO.
+ * @param {Object} card - O objeto da carta com 'color', 'value', 'id', 'type'.
+ * @param {string} elementDomId - ID único para ser atribuído ao elemento no DOM.
+ * @param {boolean} [isPlayerCard=false] - Se true, adiciona event listener de clique para jogar (só para cartas da mão humana).
+ * @returns {HTMLDivElement} O elemento da carta criado.
+ */
+function createCardElement(card, elementDomId, isPlayerCard = false) {
+    // Validação da carta
+    if (!card || !card.id || !card.value || !card.color) {
+        console.error("createCardElement: Dados da carta inválidos.", card);
+        const errorDiv = document.createElement('div'); errorDiv.textContent = 'Erro'; return errorDiv;
+    }
+
+    const cardElem = document.createElement('div');
+    cardElem.className = 'card'; // Classe base
+    cardElem.dataset.id = card.id; // Guarda ID original da carta nos dados
+    cardElem.id = `card-dom-${elementDomId}`; // ID único para o elemento DOM
+
+    // Elemento interno para o valor/ícone
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'value';
+    // Adicionado sempre, conteúdo definido abaixo
+
+    // Aplicar classes CSS baseadas na cor e tipo/valor
+    if (card.color === 'special') {
+        cardElem.classList.add('card--special', `card--${card.value}`); // Wild, Wild4
+        // Texto para coringas é definido via ::after no CSS
+    } else {
+        // Cartas Coloridas
+        cardElem.classList.add(`card--${card.color}`);
+        // Verifica se é número ou ação
+        if (isNaN(parseInt(card.value))) { // Não é número -> Ação (skip, reverse, draw2)
+             cardElem.classList.add('card--special', `card--${card.value}`);
+            // Ícones para ações são definidos via ::after no CSS
+        } else { // É número
+            valueSpan.textContent = card.value; // Mostra o número
+        }
+    }
+    cardElem.appendChild(valueSpan); // Adiciona span de valor/ícone à carta
+
+    // Adicionar Event Listener de Clique (SOMENTE para cartas na MÃO do jogador 0)
+    if (isPlayerCard && playerHandElement && players?.[0]?.hand.some(handCard => handCard && handCard.id === card.id)) {
+         cardElem.addEventListener('click', () => {
+            // Verifica se o jogo permite a ação
+            if (!gameOver && currentPlayerIndex === 0 && !botThinking) {
+                 // Encontra o índice real da carta na mão atual do jogador
+                const cardId = cardElem.dataset.id;
+                const currentHand = players[0].hand;
+                const cardIndexInHand = currentHand.findIndex(hCard => hCard && hCard.id === cardId);
+
+                if (cardIndexInHand !== -1) {
+                     console.log(`Jogador clicou na carta: ${cardId} (Índice na mão: ${cardIndexInHand})`);
+                     playCard(0, cardIndexInHand); // Tenta jogar a carta
+                 } else {
+                    console.error(`Erro no clique: Carta com ID ${cardId} (DOM id ${cardElem.id}) não encontrada na mão atual do jogador 0. Mão:`, currentHand);
+                    setStatusMessage("Erro: Carta não encontrada na mão.", true);
+                 }
+
+             } else {
+                 // Informa porque o clique foi ignorado
+                 if (gameOver) setStatusMessage("O jogo já terminou.", true);
+                 else if (currentPlayerIndex !== 0) setStatusMessage("Não é a sua vez!", true);
+                 else if (botThinking) setStatusMessage("Aguarde o Bot terminar a jogada.", true);
+                 // Adiciona um pequeno 'shake' visual para feedback
+                 cardElem.style.animation = 'shake 0.3s ease-in-out';
+                 setTimeout(() => cardElem.style.animation = '', 300);
+             }
+         });
+         // O cursor pointer é definido/removido em highlightPlayableCards
+         cardElem.style.cursor = 'default'; // Começa como não jogável até highlight verificar
+    } else {
+         // Cartas no descarte, etc., não são clicáveis
+         cardElem.style.cursor = 'default';
+    }
+
+    return cardElem;
+}
+
+
+/** Destaca as cartas jogáveis na mão do jogador humano adicionando uma classe CSS. */
+function highlightPlayableCards() {
+    // Executa somente se for a vez do humano, o bot não estiver pensando, e o jogo não acabou
+    if (gameOver || currentPlayerIndex !== 0 || botThinking || !playerHandElement || !players?.[0]) {
+        // Garante que nenhuma carta fique destacada se não for a vez do humano
+        playerHandElement?.querySelectorAll('.card.card--playable').forEach(elem => {
+            elem.classList.remove('card--playable');
+            elem.style.cursor = 'default';
+        });
+        return;
+    }
+
+    const playerHand = players[0].hand;
+    playerHandElement.querySelectorAll('.card').forEach(cardElem => {
+        const cardId = cardElem.dataset.id;
+        // Encontra a carta correspondente nos dados da mão do jogador
+        const cardData = playerHand.find(c => c && c.id === cardId);
+        let isPlayable = false;
+
+        // Verifica se a carta existe e se é jogável
+        if (cardData) {
+             isPlayable = isCardPlayable(cardData);
+        }
+
+        // Adiciona ou remove a classe de destaque
+        cardElem.classList.toggle('card--playable', isPlayable);
+        // Define o cursor para indicar interatividade
+        cardElem.style.cursor = isPlayable ? 'pointer' : 'default';
+         // Garante que o pointerEvents não esteja bloqueado (pode ser redefinido pelo modal)
+         cardElem.style.pointerEvents = 'auto';
+    });
+}
+
+
+/**
+ * Define a mensagem exibida na área de status do jogo.
+ * Pode aplicar classes para estilização (erro, vencedor, etc.).
+ * @param {string} msg - A mensagem a ser exibida.
+ * @param {boolean} [isError=false] - Se true, aplica estilo de erro.
+ * @param {boolean} [isWinner=false] - Se true, aplica estilo de vencedor.
+ */
+function setStatusMessage(msg, isError = false, isWinner = false) {
+    if (!gameStatusElement) return;
+
+    // Guarda o botão de reiniciar (se existir) para readicioná-lo depois
+    const restartButton = gameStatusElement.querySelector('.btn--restart');
+    const lineBreak = gameStatusElement.querySelector('br'); // Guarda também o <br>
+
+    // Limpa apenas o conteúdo de TEXTO atual, preservando o botão/br
+    Array.from(gameStatusElement.childNodes).forEach(node => {
+        // Remove nós de texto e elementos que não sejam o botão/br guardados
+        if (node.nodeType === Node.TEXT_NODE || (node !== restartButton && node !== lineBreak)) {
+            gameStatusElement.removeChild(node);
+        }
+    });
+
+    // Cria e insere o novo nó de texto no início
+    const textNode = document.createTextNode(msg);
+    gameStatusElement.insertBefore(textNode, gameStatusElement.firstChild);
+
+    // Aplica classes de estilo baseadas no tipo de mensagem
+    gameStatusElement.className = 'game-status'; // Reseta classes antigas
+    if (isWinner) {
+        gameStatusElement.classList.add('winner-message');
+    } else if (isError) {
+        gameStatusElement.classList.add('error-message');
+    } else if (msg.toLowerCase().includes("vez de")) {
+        gameStatusElement.classList.add('player-turn');
+    } else if (msg.toLowerCase().includes("uno!")) {
+        gameStatusElement.classList.add('uno-alert');
+    }
+     // Adiciona outras classes condicionais se necessário (ex: 'thinking-message')
+
+     // Readiciona o <br> e o botão de reiniciar, se existiam
+     if (lineBreak) gameStatusElement.appendChild(lineBreak);
+     if (restartButton) gameStatusElement.appendChild(restartButton);
+
+    // Loga a mensagem no console para debug
+    console.log("Status:", msg);
+}
+
+
+// ===== Lógica da IA (Bot) =====
+
+/** Ativa o turno do bot após um pequeno delay (simula pensamento). */
+function triggerBotTurn() {
+    // Validações para garantir que o bot DEVE jogar
+    if (gameOver || currentPlayerIndex !== 1 || !players[1]?.isBot || !botThinking) {
+        botThinking = false; // Corrige flag se chamada indevida
+        console.warn("triggerBotTurn cancelado: Condições não atendidas.", {gameOver, currentPlayerIndex, isBot: players[1]?.isBot, botThinking});
+        // Se a vez voltou pro humano inesperadamente, atualiza a UI dele
+        if (!gameOver && currentPlayerIndex === 0) updateUI();
+        return;
+    }
+
+    console.log("Bot está 'pensando'...");
+    setStatusMessage("Bot está pensando..."); // Informa o jogador humano
+
+    // Adiciona delay
+    setTimeout(() => {
+        // Revalida as condições DENTRO do timeout, pois o estado pode ter mudado
+        if (!gameOver && currentPlayerIndex === 1 && players[1]?.isBot && botThinking) {
+            executeBotLogic();
+        } else {
+            console.log("Ação do Bot cancelada: Estado do jogo mudou durante o 'pensamento'.");
+            // Se o jogo acabou ou não é mais vez do bot, reseta flag
+            if(gameOver || currentPlayerIndex !== 1) botThinking = false;
+             // Se a vez voltou pro humano, atualiza a UI
+             if (!gameOver && currentPlayerIndex === 0) updateUI();
+        }
+    }, BOT_TURN_DELAY_MS); // Usa a constante para o delay
+}
+
+/** Executa a lógica de decisão e jogada do bot. */
+function executeBotLogic() {
+    // Validação final antes da execução
+    if (gameOver || currentPlayerIndex !== 1 || !players[1]?.isBot) {
+        console.error("executeBotLogic chamada, mas condições não são mais válidas.");
+        botThinking = false; return;
+    }
+
+    console.log("--- Executando Lógica do Bot ---");
+    const bot = players[1];
+    const botHand = bot.hand;
+
+    // 1. Ação Obrigatória (+2/+4)? Tentar contra-atacar.
+    if (playerMustPlayOrDraw) {
+        console.log(`Bot enfrenta compra obrigatória de ${mustDrawCards}. Verificando contra-ataque...`);
+         // Prioriza jogar +4 se tiver
+        const wild4Card = botHand.find(c => c && c.value === 'wild4');
+        if (wild4Card) {
+             const index = botHand.findIndex(c => c && c.id === wild4Card.id);
+             console.log(`Bot joga ${wild4Card.id} (+4) para contra-atacar!`);
+             playCard(1, index); // playCard lidará com escolha de cor e avanço
+             botThinking = false; // Reseta flag após jogada
+             return;
+         }
+         // Senão, tenta jogar +2 se for válido (topo é +2)
+        const draw2Card = botHand.find(c => c && c.value === 'draw2' && currentValidValue === 'draw2');
+        if (draw2Card) {
+             const index = botHand.findIndex(c => c && c.id === draw2Card.id);
+             console.log(`Bot joga ${draw2Card.id} (+2) para acumular!`);
+             playCard(1, index);
+             botThinking = false;
+             return;
+         }
+        // Se não pode contra-atacar, a compra será forçada pelo advanceTurn.
+        // Não precisamos chamar drawCard aqui, o fluxo normal cuidará disso.
+        console.log("Bot não pode contra-atacar a compra obrigatória. Compra será forçada.");
+        // Bot 'passa' a vez, o advanceTurn que o chamou vai forçar a compra e pular.
+        // IMPORTANTE: Não chamar advanceTurn daqui, senão entra em loop. Apenas sai.
+        botThinking = false; // Reseta flag
+        // O fluxo normal do advanceTurn (que foi interrompido pela compra forçada) vai continuar
+        return;
+    }
+
+    // 2. Turno Normal: Encontrar a melhor carta para jogar.
+    // Mapeia todas as cartas jogáveis
+    const playableCards = botHand.map((card, index) => ({ card, index })).filter(item => item.card && isCardPlayable(item.card));
+
+    if (playableCards.length > 0) {
+        console.log(`Bot tem ${playableCards.length} cartas jogáveis:`, playableCards.map(pc => pc.card.id));
+        let chosenCardData = null;
+
+        // --- Estratégia de Escolha Simples ---
+        // Prioridade:
+        // 1. Cartas de Ação (Skip, Reverse, Draw2) da mesma COR que o topo.
+        // 2. Cartas Numéricas da mesma COR que o topo.
+        // 3. Cartas de Ação do mesmo VALOR que o topo (cor diferente).
+        // 4. Cartas Numéricas do mesmo VALOR que o topo (cor diferente).
+        // 5. Cartas de Ação (qualquer uma que seja jogável).
+        // 6. Cartas Numéricas (qualquer uma que seja jogável).
+        // 7. Cartas Wild (Coringa Normal).
+        // 8. Cartas Wild +4 (se for a única opção ou estratégia agressiva).
+
+        // Filtra tipos para estratégia
+        const matchingColorActions = playableCards.filter(d => d.card.type === 'action' && d.card.color === currentValidColor);
+        const matchingColorNumbers = playableCards.filter(d => d.card.type !== 'action' && d.card.type !== 'wild' && d.card.color === currentValidColor);
+        const matchingValueActions = playableCards.filter(d => d.card.type === 'action' && d.card.value === currentValidValue && d.card.color !== currentValidColor);
+        const matchingValueNumbers = playableCards.filter(d => d.card.type !== 'action' && d.card.type !== 'wild' && d.card.value === currentValidValue && d.card.color !== currentValidColor);
+        const anyPlayableAction = playableCards.filter(d => d.card.type === 'action');
+        const anyPlayableNumber = playableCards.filter(d => d.card.type !== 'action' && d.card.type !== 'wild');
+        const wilds = playableCards.filter(d => d.card.value === 'wild');
+        const wild4s = playableCards.filter(d => d.card.value === 'wild4');
+
+        if (matchingColorActions.length > 0) chosenCardData = matchingColorActions[0]; // Prioriza ação da mesma cor
+        else if (matchingColorNumbers.length > 0) chosenCardData = matchingColorNumbers[0]; // Num da mesma cor
+        else if (matchingValueActions.length > 0) chosenCardData = matchingValueActions[0]; // Ação do mesmo valor
+        else if (matchingValueNumbers.length > 0) chosenCardData = matchingValueNumbers[0]; // Num do mesmo valor
+        else if (anyPlayableAction.length > 0) chosenCardData = anyPlayableAction[0];       // Qualquer ação jogável
+        else if (anyPlayableNumber.length > 0) chosenCardData = anyPlayableNumber[0];       // Qualquer número jogável
+        else if (wilds.length > 0) chosenCardData = wilds[0];                               // Coringa normal
+        else if (wild4s.length > 0) chosenCardData = wild4s[0];                             // Coringa +4 (último recurso)
+        else {
+             // Fallback muito improvável se playableCards.length > 0
+             console.error("Bot: Falha na lógica de escolha, usando a primeira jogável como fallback.");
+             chosenCardData = playableCards[0];
+         }
+
+        console.log(`Bot escolheu jogar: ${chosenCardData.card.id} (Índice ${chosenCardData.index})`);
+        // Joga a carta escolhida
+        playCard(1, chosenCardData.index);
+        botThinking = false; // Reseta flag
+
+    } else {
+        // 3. Se não há cartas jogáveis: Comprar uma carta.
+        console.log("Bot não tem cartas jogáveis. Comprando uma carta...");
+        setStatusMessage("Bot está comprando uma carta...");
+        const drawnCards = drawCardFromDeck(1, 1, false); // Compra 1, sem update imediato
+
+        if(gameOver) return; // Compra pode ter causado fim
+
+        if (drawnCards.length > 0) {
+            const drawnCard = drawnCards[0];
+            console.log(`Bot comprou: ${drawnCard.id}`);
+            // Verifica se a carta comprada PODE ser jogada IMEDIATAMENTE
+            if (isCardPlayable(drawnCard)) {
+                console.log(`Carta comprada (${drawnCard.id}) é jogável! Jogando...`);
+                 // A carta está no fim da mão agora. Precisa do índice correto.
+                 const drawnCardIndex = bot.hand.findIndex(c => c && c.id === drawnCard.id);
+                 if (drawnCardIndex !== -1) {
+                     setStatusMessage("Bot jogou a carta que acabou de comprar!");
+                     // Pequeno delay antes de jogar a carta comprada
+                     setTimeout(() => {
+                         if(gameOver || currentPlayerIndex !== 1) return; // Revalida
+                          playCard(1, drawnCardIndex);
+                         botThinking = false; // Reseta flag APÓS jogar
+                     }, 750); // Delay de 0.75s
+                 } else {
+                     console.error("Bot: Carta comprada não encontrada na mão para jogar?");
+                     setStatusMessage("Bot comprou e passou a vez."); // Passa se bug
+                      botThinking = false; advanceTurn(true, false);
+                 }
+            } else {
+                // Se a carta comprada não é jogável, passa a vez
+                console.log("Carta comprada não é jogável. Bot passa a vez.");
+                setStatusMessage("Bot comprou uma carta e passou a vez.");
+                botThinking = false;
+                updateUI(); // Atualiza para mostrar a carta comprada antes de passar
+                advanceTurn(true, false); // Avança o turno (checa UNO do bot)
+            }
+        } else {
+            // Se não conseguiu comprar (deck e descarte vazios), o jogo já deve ter acabado (empate).
+            // Mas por segurança, passa a vez.
+             console.log("Bot não conseguiu comprar (sem cartas?). Passando a vez.");
+             setStatusMessage("Bot não conseguiu comprar. Passou a vez.", true);
+             botThinking = false;
+             updateUI();
+             advanceTurn(true, false);
+        }
+    }
+    console.log("--- Fim da Lógica do Bot ---");
+}
+
+/**
+ * IA (simples) do Bot para escolher a melhor cor ao jogar um Wild/Wild4.
+ * Escolhe a cor que mais possui na mão (excluindo coringas).
+ * @returns {string} A cor escolhida ('red', 'blue', 'green', 'yellow').
+ */
+function chooseBotColor() {
+    const botHand = players[1]?.hand;
+    // Se mão inválida ou vazia, escolhe aleatório
+    if (!botHand || botHand.length === 0) {
+        const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+        console.log(`Escolha de cor (Bot - mão vazia/inválida): Aleatória -> ${randomColor}`);
+        return randomColor;
+    }
+
+    // Conta quantas cartas de cada cor o bot possui
+    const colorCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
+    botHand.forEach(card => {
+        if (card && card.color !== 'special') { // Ignora coringas na contagem
+            if (COLORS.includes(card.color)) {
+                colorCounts[card.color]++;
+            }
+        }
+    });
+
+    let bestColor = '';
+    let maxCount = -1;
+    const tiedColors = []; // Para lidar com empates
+
+     console.log("Contagem de cores do Bot:", colorCounts);
+
+    // Encontra a cor(es) com maior contagem
+    for (const color in colorCounts) {
+        if (colorCounts[color] > maxCount) {
+            maxCount = colorCounts[color];
+            tiedColors.length = 0; // Limpa array de empates
+            tiedColors.push(color);
+        } else if (colorCounts[color] === maxCount) {
+            tiedColors.push(color); // Adiciona ao empate
+        }
+    }
+
+    // Decide a cor
+    if (maxCount <= 0) { // Se não tem nenhuma carta colorida (só coringas)
+        bestColor = COLORS[Math.floor(Math.random() * COLORS.length)]; // Escolhe aleatória
+         console.log(`Escolha de cor (Bot - só coringas): Aleatória -> ${bestColor}`);
+    } else if (tiedColors.length === 1) { // Apenas uma cor com maxCount
+        bestColor = tiedColors[0];
+        console.log(`Escolha de cor (Bot): Maioria -> ${bestColor} (${maxCount} cartas)`);
+    } else { // Empate entre cores
+        bestColor = tiedColors[Math.floor(Math.random() * tiedColors.length)]; // Desempata aleatoriamente
+         console.log(`Escolha de cor (Bot - empate ${tiedColors}): Aleatória entre as empatadas -> ${bestColor}`);
+    }
+
+    return bestColor;
+}
+
+// ===== Funções de Interação e Verificação =====
+
+/** Clique no baralho (deck) ou no botão "Comprar Carta". */
+function handleDrawClick() {
+    // Validações: só na vez do humano, se o bot não está pensando, e jogo ativo
+    if (gameOver || currentPlayerIndex !== 0 || botThinking) {
+        console.log("handleDrawClick ignorado:", {gameOver, currentPlayerIndex, botThinking});
+        return;
+    }
+
+    // Se é obrigado a jogar ou comprar (+ acumulado)
+    if (playerMustPlayOrDraw) {
+        // Tentar jogar +2/+4 deve ser feito clicando na carta.
+        // Clicar em Comprar aqui SIGNIFICA que o jogador DESISTE de jogar e aceita comprar.
+        console.log(`Jogador ${currentPlayerIndex} clicou em comprar, aceitando a compra de ${mustDrawCards} cartas.`);
+        setStatusMessage(`Você escolheu comprar ${mustDrawCards} carta(s) e perdeu a vez.`);
+
+        const cardsToDraw = mustDrawCards; // Guarda quantidade
+        mustDrawCards = 0;             // Reseta contador
+        playerMustPlayOrDraw = false;  // Reseta flag
+
+        drawCardFromDeck(0, cardsToDraw, true); // Executa a compra e atualiza UI
+
+        if(gameOver) return; // Compra pode ter encerrado o jogo
+
+        // Avança e PULA a vez do jogador que comprou
+         advanceTurn(false, true); // false = não checa UNO de quem comprou; true = pula este jogador
+
+    }
+    // Se não há compra obrigatória, é uma compra normal de turno
+    else {
+        // Verifica se há cartas no deck para comprar
+        if (deck.length > 0) {
+            console.log(`Jogador ${currentPlayerIndex} comprou 1 carta voluntariamente.`);
+            setStatusMessage("Você comprou 1 carta."); // Mensagem inicial
+            const drawnCards = drawCardFromDeck(0, 1, false); // Compra 1, sem update imediato
+
+            if (gameOver) return; // Jogo pode ter acabado (empate)
+
+            // Após comprar, o jogador NÃO PODE jogar a carta comprada na mesma rodada (regra comum).
+             // Portanto, passa a vez.
+             setStatusMessage("Você comprou 1 carta e passou a vez.");
+             console.log("Passando a vez após compra voluntária.");
+              updateUI(); // Atualiza UI ANTES de passar a vez
+             advanceTurn(true, false); // Avança (checa UNO de quem comprou), sem pular
+
+        }
+        // Se deck vazio, mas PODE reembaralhar
+        else if (discardPile.length > 1) {
+            console.log("Jogador clicou para reembaralhar o deck vazio.");
+             setStatusMessage("Reembaralhando...");
+            if (reshuffleDiscardPile()) { // Tenta reembaralhar
+                updateUI(); // Atualiza a UI para mostrar o novo deck
+                // O jogador agora precisa clicar NOVAMENTE para comprar a carta
+                setStatusMessage("Baralho reembaralhado. Clique novamente para comprar uma carta.");
+            } else {
+                 // Falha no reembaralhamento (não deveria acontecer se discardPile.length > 1)
+                 setStatusMessage("Falha ao reembaralhar o baralho.", true);
+                 updateUI(); // Atualiza para mostrar o estado (deck continua vazio)
+            }
+        }
+        // Se deck vazio e NÃO pode reembaralhar
+        else {
+            console.log("Jogador tentou comprar, mas não há cartas no deck nem para reembaralhar.");
+            setStatusMessage("Não há cartas para comprar ou reembaralhar!", true);
+             updateUI(); // Garante que UI reflita deck vazio/impossível
+             // Nesse caso, o jogador fica travado? Teoricamente sim. Isso leva ao empate que drawCard já trata.
+        }
+    }
+}
+
+
+/** Clique no botão UNO. */
+function handleUnoClick() {
+    // Só funciona na vez do humano, sem bot pensando, jogo ativo, e se PODE chamar UNO
+    if (gameOver || currentPlayerIndex !== 0 || botThinking || !unoBtn) return;
+
+    if (canCallUno[0] && !unoCalled[0]) {
+        // Condição correta para gritar UNO
+        console.log("Jogador humano gritou UNO!");
+        setStatusMessage("Você gritou UNO!");
+        unoCalled[0] = true; // Marca que gritou
+        // Atualiza UI do botão e badge
+        unoBtn.disabled = true; // Desabilita após gritar
+        unoBtn.classList.remove('can-press'); // Remove destaque/animação
+         playerZoneElement?.classList.add('has-uno'); // Mostra badge visual
+
+        // Opcional: Cancela timer de penalidade se houver um ativo
+        // cancelUnoPenaltyTimer(0);
+
+    } else if (unoCalled[0]) {
+        // Já gritou UNO
+         setStatusMessage("Você já gritou UNO nesta rodada!", true);
+         console.log("Jogador clicou UNO, mas já tinha gritado.");
+    } else if (!canCallUno[0]) {
+         // Não está na condição de gritar (tem mais de 1 carta, ou acabou de comprar)
+        setStatusMessage("Você não pode gritar UNO agora.", true);
+         console.log("Jogador clicou UNO, mas não estava na condição (Mão:", players[0].hand.length, "CanCall:", canCallUno[0],")");
+    }
+}
+
+/**
+ * Verifica se um jogador deveria ter gritado UNO e não o fez.
+ * Aplica penalidade de +2 cartas se necessário.
+ * Chamado ANTES de passar a vez para o próximo jogador.
+ * @param {number} playerId - ID do jogador a ser verificado.
+ */
+function checkUnoPenalty(playerId) {
+    // Não aplica penalidade se o jogo acabou ou jogador inválido
+    if (gameOver || !players?.[playerId]) return;
+
+    const player = players[playerId];
+
+    // Condição de Penalidade:
+    // 1. O jogador ESTAVA na condição de UNO (tinha 1 carta no final do SEU turno anterior)? -> canCallUno[playerId] é true
+    // 2. Ele NÃO gritou UNO? -> unoCalled[playerId] é false
+    // 3. A vez já está passando para o próximo? (Esta função é chamada nesse momento)
+    // (A condição de ter 1 carta é verificada implicitamente por canCallUno ter sido setado como true)
+    if (canCallUno[playerId] && !unoCalled[playerId]) {
+        console.warn(`PENALIDADE! Jogador ${playerId} (${player.name}) esqueceu de gritar UNO!`);
+        setStatusMessage(`${player.name} esqueceu de gritar UNO! Compra 2 cartas de penalidade.`, true);
+        // Aplica penalidade
+        drawCardFromDeck(playerId, 2, true); // Compra 2 e atualiza UI
+
+        // Importante: Resetar as flags de UNO após a penalidade
+         canCallUno[playerId] = false; // Não está mais em condição UNO após comprar
+         unoCalled[playerId] = false; // Reset do grito
+         // Atualiza UI relacionada ao UNO para este jogador
+         if (playerId === 0 && unoBtn) {
+             unoBtn.disabled = true;
+             unoBtn.classList.remove('can-press');
+              playerZoneElement?.classList.remove('has-uno');
+         } else if (playerId === 1) {
+             opponentZoneElement?.classList.remove('has-uno');
+         }
+         console.log(`Jogador ${playerId} tem agora ${player.hand.length} cartas após penalidade.`);
+         // O jogo pode ter acabado aqui se não havia cartas para comprar.
+    }
+    // Não faz nada se não esqueceu ou não estava em condição de UNO.
+}
+
+
+// ===== Event Listeners =====
+// Adiciona listeners aos elementos interativos
+
+// Clique no monte de compra (deck)
+if (deckPileElement) {
+    deckPileElement.addEventListener('click', handleDrawClick);
+} else {
+    console.error("Erro Crítico: Elemento #deck-pile não encontrado no DOM.");
+}
+
+// Clique no botão "Comprar Carta" (inferior)
+if (drawCardBtn) {
+    drawCardBtn.addEventListener('click', handleDrawClick);
+} else {
+    console.error("Erro Crítico: Botão #draw-card-btn não encontrado no DOM.");
+}
+
+// Clique no botão "UNO!" (inferior)
+if (unoBtn) {
+    unoBtn.addEventListener('click', handleUnoClick);
+} else {
+    console.error("Erro Crítico: Botão #uno-btn não encontrado no DOM.");
+}
+
+// Clique nos botões de cor do modal
+colorButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const selectedColor = button.dataset.color;
+        if (selectedColor) {
+            selectColor(selectedColor); // Chama a função que processa a escolha
+        } else {
+            console.error("Botão de cor clicado não possui data-color definido:", button);
+        }
+    });
+});
+
+// Clique no botão "REINICIAR" (topo) - NOVO
+if (restartGameBtnTop) {
+    restartGameBtnTop.addEventListener('click', () => {
+        console.log("Botão REINICIAR (Topo) clicado.");
+        // Pergunta se tem certeza? (Opcional)
+        // if (confirm("Tem certeza que deseja reiniciar o jogo?")) {
+        //     startGame();
+        // }
+        startGame(); // Reinicia diretamente
+    });
+} else {
+    console.error("Erro: Botão #restart-game-btn (Topo) não encontrado.");
+}
+// Botão Regras (Topo): Funciona via onclick="window.location.href='regras.html'" no HTML, não precisa de listener JS aqui.
+
+// Atualiza o ano no rodapé (se o elemento existir)
+if (currentYearElement) {
+    currentYearElement.textContent = new Date().getFullYear();
+}
+
+// ===== Inicialização =====
+
+// Captura erros globais não tratados para tentar dar um feedback
+window.addEventListener('error', (event) => {
+    console.error('ERRO GLOBAL NÃO TRATADO:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error // Objeto do erro, se disponível
+    });
+     // Evita entrar em loop se o próprio setStatusMessage/endGame der erro
+     if (!gameOver) {
+         setStatusMessage("Ocorreu um erro inesperado no jogo! Por favor, reinicie.", true);
+         endGame(null, true); // Marca como fim por erro
+     }
+});
+window.addEventListener('unhandledrejection', (event) => {
+     console.error('REJEIÇÃO DE PROMISE NÃO TRATADA:', event.reason);
+      if (!gameOver) {
+          setStatusMessage("Erro assíncrono inesperado! Por favor, reinicie.", true);
+          endGame(null, true);
+      }
+});
+
+
+// Inicia o jogo quando o DOM estiver completamente carregado
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM carregado. Iniciando o jogo...");
+    // Pequeno delay para garantir que fontes/estilos básicos carregaram
+    // antes de iniciar a lógica principal, melhora percepção inicial.
+    // setTimeout(startGame, 100);
+    // Ou inicia direto:
+    startGame();
+});

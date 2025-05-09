@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regras do Jogo de UNO - Tutorial Completo</title>
+    <!-- Importação de Fontes (mesmas do jogo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Link para o CSS das regras -->
+    <link rel="stylesheet" href="regras.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="uno-logo">UNO</span> Regras e Tutorial</h1>
+            <p class="intro">Bem-vindo ao tutorial do nosso jogo de UNO digital! UNO é um jogo de cartas clássico, rápido e divertido, fácil de aprender mas cheio de reviravoltas. O objetivo é ser o primeiro a ficar sem cartas na mão. Prepare-se para combinar cores, números e usar cartas especiais para atrapalhar seus oponentes!</p>
+        </header>
+
+        <nav class="table-of-contents">
+            <h2>Índice Rápido</h2>
+            <ul>
+                <li><a href="#objetivo">🎯 Objetivo do Jogo</a></li>
+                <li><a href="#preparacao">⚙️ Preparação Inicial</a></li>
+                <li><a href="#como-jogar">▶️ Como Jogar (Seu Turno)</a></li>
+                <li><a href="#tipos-cartas">🃏 Tipos de Cartas</a>
+                    <ul>
+                        <li><a href="#cartas-numericas">Cartas Numéricas</a></li>
+                        <li><a href="#cartas-acao">Cartas de Ação</a></li>
+                        <li><a href="#cartas-coringa">Cartas Coringa</a></li>
+                    </ul>
+                </li>
+                <li><a href="#regras-especiais">✨ Regras Especiais</a>
+                    <ul>
+                        <li><a href="#gritar-uno">Gritar "UNO!"</a></li>
+                        <li><a href="#penalidade-uno">Penalidade por não gritar "UNO!"</a></li>
+                        <li><a href="#acumulo-compra">Acúmulo de Cartas de Compra (+2, +4)</a></li>
+                        <li><a href="#carta-coringa-jogada">Jogando um Coringa</a></li>
+                        <li><a href="#comprar-carta">Comprando Cartas</a></li>
+                    </ul>
+                </li>
+                <li><a href="#vencendo-jogo">🏆 Vencendo o Jogo</a></li>
+                 <li><a href="#dicas-rapidas">💡 Dicas Rápidas (Digital)</a></li>
+            </ul>
+        </nav>
+
+        <main>
+            <section id="objetivo">
+                <h2>🎯 Objetivo do Jogo</h2>
+                <p>O objetivo principal do UNO é <strong>ser o primeiro jogador a ficar sem nenhuma carta na mão</strong>. Você faz isso jogando cartas que correspondam à carta do topo da pilha de descarte, seja por cor, número ou símbolo (nas cartas de ação/coringa).</p>
+            </section>
+
+            <section id="preparacao">
+                <h2>⚙️ Preparação Inicial</h2>
+                <p>No nosso jogo digital, a preparação é automática, mas aqui está o que acontece:</p>
+                <ol>
+                    <li>O baralho é embaralhado digitalmente.</li>
+                    <li>Cada jogador (você e o Bot) recebe <strong>7 cartas</strong>.</li>
+                    <li>As cartas restantes formam o <strong>Baralho de Compra</strong>.</li>
+                    <li>A carta do topo do Baralho de Compra é virada para iniciar a <strong>Pilha de Descarte</strong>. Se for uma carta de Ação (Comprar 2, Pular, Reverter), seu efeito é aplicado imediatamente (veja detalhes nas regras específicas). Cartas Coringa não podem iniciar a pilha de descarte no setup inicial.</li>
+                </ol>
+                <div class="visual-setup">
+                    <div class="card-example">
+                         <span>Sua Mão (7 Cartas)</span>
+                         <div class="tutorial-card card--blue value"><span>3</span></div>
+                         <div class="tutorial-card card--yellow value"><span>7</span></div>
+                         <div class="tutorial-card card--green value"><span>1</span></div>
+                         <div class="tutorial-card card--red card--skip value"><span>Ø</span></div>
+                        <div class="tutorial-card card--special card--wild value"><span>W</span></div>
+                        <span>...</span>
+                    </div>
+                    <div class="card-example">
+                         <span>Baralho Compra</span>
+                         <div class="tutorial-card card--back"><span>UNO</span></div>
+                    </div>
+                     <div class="card-example">
+                         <span>Pilha Descarte (Início)</span>
+                        <div class="tutorial-card card--green value"><span>5</span></div>
+                    </div>
+                 </div>
+            </section>
+
+            <section id="como-jogar">
+                <h2>▶️ Como Jogar (Seu Turno)</h2>
+                <p>O jogo segue em turnos (neste caso, entre você e o Bot). No seu turno, você deve fazer <strong>uma</strong> das seguintes ações:</p>
+                <ul>
+                    <li><strong>Jogar uma carta:</strong> Se você tiver uma carta na mão que combine com a carta no topo da Pilha de Descarte por <strong>cor</strong>, <strong>número</strong> ou <strong>símbolo</strong> (ação/coringa), você pode jogá-la clicando nela. Sua carta jogada se torna a nova carta do topo do descarte.</li>
+                    <li><strong>Jogar uma Carta Coringa:</strong> Você sempre pode jogar uma carta Coringa ou Coringa Comprar 4 (desde que não haja uma sequência de +2/+4 acumulada onde você só poderia jogar outra carta de compra - veja <a href="#acumulo-compra">Regras Especiais</a>). Ao jogar um Coringa, você escolhe a próxima cor a ser seguida.</li>
+                    <li><strong>Comprar uma carta:</strong> Se você não tiver nenhuma carta jogável OU se escolher não jogar uma carta que tem, você deve clicar no <strong>Baralho de Compra</strong>. Você comprará UMA carta.
+                        <ul>
+                            <li>Na nossa versão digital, após comprar uma carta, seu turno <strong>geralmente passa automaticamente</strong> para o próximo jogador, mesmo que a carta comprada seja jogável. (Isso simplifica o fluxo online).</li>
+                        </ul>
+                    </li>
+                </ul>
+                 <p>Após jogar ou comprar, o turno passa para o próximo jogador (o Bot, neste caso), a menos que uma carta de Pular ou Reverter seja jogada.</p>
+                 <div class="visual-play">
+                    <p><strong>Exemplo:</strong> Topo do descarte é <span class="card-example inline"><span class="tutorial-card small card--blue value">7</span></span>. Você pode jogar:</p>
+                    <ul>
+                        <li>Qualquer carta <strong>AZUL</strong> (ex: <span class="card-example inline"><span class="tutorial-card small card--blue value">2</span></span>, <span class="card-example inline"><span class="tutorial-card small card--blue card--skip value">Ø</span></span>)</li>
+                        <li>Qualquer carta com o número <strong>7</strong> (ex: <span class="card-example inline"><span class="tutorial-card small card--red value">7</span></span>, <span class="card-example inline"><span class="tutorial-card small card--yellow value">7</span></span>)</li>
+                        <li>Qualquer carta <strong>Coringa</strong> (ex: <span class="card-example inline"><span class="tutorial-card small card--special card--wild value">W</span></span>)</li>
+                     </ul>
+                </div>
+            </section>
+
+            <section id="tipos-cartas">
+                <h2>🃏 Tipos de Cartas</h2>
+                <p>O baralho de UNO contém os seguintes tipos de cartas:</p>
+
+                <h3 id="cartas-numericas">Cartas Numéricas (0-9)</h3>
+                <p>São as cartas mais comuns, com números de 0 a 9 em quatro cores (Vermelho, Azul, Amarelo, Verde). Você as joga combinando a cor ou o número com a carta do topo do descarte.</p>
+                 <div class="card-gallery">
+                    <div class="card-example"><div class="tutorial-card card--red value"><span>9</span></div></div>
+                    <div class="card-example"><div class="tutorial-card card--blue value"><span>0</span></div></div>
+                    <div class="card-example"><div class="tutorial-card card--green value"><span>5</span></div></div>
+                    <div class="card-example"><div class="tutorial-card card--yellow value"><span>3</span></div></div>
+                 </div>
+
+                <h3 id="cartas-acao">Cartas de Ação</h3>
+                <p>Estas cartas têm efeitos especiais que mudam o fluxo do jogo. Elas também têm cores e precisam combinar com a cor ou o símbolo da carta no topo do descarte (ou podem ser jogadas sobre outra carta de ação do mesmo tipo).</p>
+                 <ul>
+                     <li>
+                        <strong>Pular (Skip / Ø):</strong>
+                        <div class="card-example inline"><div class="tutorial-card small card--green card--skip value"><span>Ø</span></div></div>
+                        O próximo jogador perde a vez.
+                    </li>
+                    <li>
+                        <strong>Reverter (Reverse / ⇄):</strong>
+                         <div class="card-example inline"><div class="tutorial-card small card--yellow card--reverse value"><span>⇄</span></div></div>
+                        Inverte a direção do jogo. Em uma partida de <strong>dois jogadores</strong> (como esta contra o Bot), funciona exatamente como a carta <strong>Pular</strong>.
+                    </li>
+                    <li>
+                        <strong>Comprar Duas (+2 / Draw Two):</strong>
+                        <div class="card-example inline"><div class="tutorial-card small card--red card--draw2 value"><span>+2</span></div></div>
+                        O próximo jogador deve comprar 2 cartas e perde a vez. Esta carta só pode ser jogada sobre uma carta da mesma cor ou sobre outra carta +2. Veja a regra de <a href="#acumulo-compra">Acúmulo</a>.
+                     </li>
+                 </ul>
+                 <div class="card-gallery">
+                    <div class="card-example"><div class="tutorial-card card--blue card--skip value"><span>Ø</span></div></div>
+                    <div class="card-example"><div class="tutorial-card card--red card--reverse value"><span>⇄</span></div></div>
+                     <div class="card-example"><div class="tutorial-card card--yellow card--draw2 value"><span>+2</span></div></div>
+                </div>
+
+                <h3 id="cartas-coringa">Cartas Coringa (Wild Cards)</h3>
+                <p>Estas cartas não têm cor e podem ser jogadas sobre qualquer carta (exceto durante um acúmulo específico de +2/+4).</p>
+                <ul>
+                     <li>
+                        <strong>Coringa (Wild / W):</strong>
+                        <div class="card-example inline"><div class="tutorial-card small card--special card--wild value"><span>W</span></div></div>
+                         Permite que você escolha qual será a próxima cor a ser jogada (pode manter a cor atual se quiser). Pode ser jogada mesmo se você tiver outra carta jogável na mão.
+                    </li>
+                    <li>
+                        <strong>Coringa Comprar Quatro (+4 / Wild Draw Four):</strong>
+                        <div class="card-example inline"><div class="tutorial-card small card--special card--wild4 value"><span>+4</span></div></div>
+                        A carta mais poderosa! Permite escolher a próxima cor E força o próximo jogador a comprar 4 cartas, perdendo a vez.
+                        <br><strong>Regra Oficial (Adaptada no Digital):</strong> Teoricamente, você só deveria jogar esta carta se NÃO tiver nenhuma outra carta na mão que combine com a COR da pilha de descarte. No entanto, na nossa versão digital (e em muitas partidas casuais/digitais), você pode jogá-la a qualquer momento (se não for para contra-atacar um +2 onde só caberia outro +2 ou +4). Veja a regra de <a href="#acumulo-compra">Acúmulo</a>.
+                    </li>
+                </ul>
+                 <div class="card-gallery">
+                    <div class="card-example"><div class="tutorial-card card--special card--wild value"><span>W</span></div></div>
+                     <div class="card-example"><div class="tutorial-card card--special card--wild4 value"><span>+4</span></div></div>
+                </div>
+            </section>
+
+            <section id="regras-especiais">
+                <h2>✨ Regras Especiais</h2>
+
+                <h3 id="gritar-uno">Gritar "UNO!"</h3>
+                 <p>Quando você está prestes a jogar sua <strong>penúltima</strong> carta (ficando com apenas UMA carta na mão), você <strong>DEVE</strong> clicar no botão <strong>"UNO!"</strong> antes que o próximo jogador comece o turno dele (ou no caso do bot, antes que ele jogue). O botão "UNO!" ficará destacado e clicável quando você tiver apenas 2 cartas e estiver prestes a jogar uma delas.</p>
+                <div class="visual-uno">
+                     <div class="card-example">Mão com 2 cartas: <div class="tutorial-card small card--red value"><span>1</span></div> <div class="tutorial-card small card--blue value"><span>5</span></div></div>
+                    <p>➡️ Você joga <span class="card-example inline"><span class="tutorial-card small card--blue value"><span>5</span></span></span> ➡️ Mão com 1 carta: <span class="card-example inline"><span class="tutorial-card small card--red value"><span>1</span></span></span></p>
+                    <p>🚨 <strong>CLIQUE EM "UNO!" AGORA!</strong> 🚨</p>
+                 </div>
+
+                 <h3 id="penalidade-uno">Penalidade por não gritar "UNO!"</h3>
+                <p>Se você jogar sua penúltima carta e o próximo jogador iniciar o turno (ou o bot jogar) antes de você clicar em "UNO!", você será penalizado! Você terá que <strong>comprar 2 cartas</strong> extras. O Bot também está sujeito a essa regra (e "grita" UNO automaticamente no turno dele, geralmente).</p>
+
+                <h3 id="acumulo-compra">Acúmulo de Cartas de Compra (+2, +4)</h3>
+                 <p>Nossa versão digital permite o acúmulo (ou "stacking") de cartas de compra:</p>
+                 <ul>
+                    <li>Se um jogador joga um <strong>+2</strong>, o próximo jogador, em vez de comprar 2, pode jogar outro <strong>+2</strong>. A obrigação de comprar (agora 4 cartas) passa para o jogador seguinte. Isso pode continuar, acumulando +2 cartas a cada jogada.</li>
+                    <li>Se um jogador joga um <strong>+4</strong>, o próximo jogador, em vez de comprar 4, pode jogar outro <strong>+4</strong>. A obrigação (agora 8 cartas) passa adiante.</li>
+                    <li>Você <strong>PODE</strong> jogar um <strong>+4</strong> sobre um <strong>+2</strong> (o total de compra aumenta e você escolhe a cor).</li>
+                    <li>Você <strong>NÃO PODE</strong> jogar um <strong>+2</strong> sobre um <strong>+4</strong>.</li>
+                    <li>O jogador que não puder (ou não quiser) jogar outra carta +2 ou +4 deverá comprar o número total de cartas acumuladas e perderá a vez.</li>
+                 </ul>
+                <div class="visual-stack">
+                    <p>Exemplo: Jogador A joga <span class="card-example inline"><span class="tutorial-card small card--blue card--draw2 value">+2</span></span> ➡️ Jogador B joga <span class="card-example inline"><span class="tutorial-card small card--yellow card--draw2 value">+2</span></span> (Total: 4) ➡️ Jogador C joga <span class="card-example inline"><span class="tutorial-card small card--special card--wild4 value">+4</span></span> (Total: 8!) ➡️ Jogador D não tem +4, compra 8 cartas.</p>
+                 </div>
+
+                <h3 id="carta-coringa-jogada">Jogando um Coringa</h3>
+                 <p>Quando você joga um Coringa (Wild <span class="card-example inline"><span class="tutorial-card small card--special card--wild value">W</span></span>) ou um Coringa Comprar Quatro (+4 <span class="card-example inline"><span class="tutorial-card small card--special card--wild4 value">+4</span></span>), um painel aparecerá para você <strong>escolher a próxima cor</strong> que o jogador seguinte deverá seguir (Vermelho, Azul, Amarelo ou Verde). Clique na cor desejada.</p>
+                 <div class="visual-color-choice">
+                     <p>Você joga <span class="card-example inline"><span class="tutorial-card small card--special card--wild value">W</span></span> ➡️ Painel: <span class="color-btn-example color--red"></span> <span class="color-btn-example color--blue"></span> <span class="color-btn-example color--green"></span> <span class="color-btn-example color--yellow"></span> ➡️ Você clica no Azul.</p>
+                     <p>A próxima carta válida deve ser Azul ou outro Coringa.</p>
+                </div>
+
+                <h3 id="comprar-carta">Comprando Cartas</h3>
+                 <p>Se você não tem carta jogável ou decide não jogar, clique no baralho de compra (<span class="card-example inline"><span class="tutorial-card small card--back"><span>UNO</span></span></span>). Você compra <strong>uma carta</strong>.</p>
+                 <p><strong>Importante (Regra Digital):</strong> Nesta versão, após comprar 1 carta do baralho, seu <strong>turno termina automaticamente</strong>, e a vez passa para o próximo jogador (Bot). Você não pode jogar a carta que acabou de comprar no mesmo turno.</p>
+
+            </section>
+
+            <section id="vencendo-jogo">
+                <h2>🏆 Vencendo o Jogo</h2>
+                <p>O primeiro jogador a se livrar de <strong>todas as cartas</strong> da mão vence a rodada!</p>
+                <p>Lembre-se, você precisa ter cumprido a regra do <a href="#gritar-uno">"UNO!"</a> corretamente ao jogar sua penúltima carta para poder vencer ao jogar a última.</p>
+                 <div class="visual-win">
+                    <p>Sua Mão: <span class="card-example inline"><span class="tutorial-card small card--green value"><span>8</span></span></span></p>
+                    <p>Topo do Descarte: <span class="card-example inline"><span class="tutorial-card small card--green card--skip value">Ø</span></span></p>
+                     <p>✅ Você gritou "UNO!" no turno anterior!</p>
+                    <p>➡️ Você joga <span class="card-example inline"><span class="tutorial-card small card--green value"><span>8</span></span></span></p>
+                    <p>🎉 <strong>VOCÊ VENCEU!</strong> 🎉</p>
+                </div>
+             </section>
+
+            <section id="dicas-rapidas">
+                <h2>💡 Dicas Rápidas (Digital)</h2>
+                 <ul>
+                    <li><strong>Fique de olho nas cores:</strong> Tente se livrar das cores que você tem menos ou use Coringas para mudar para cores que você tem mais.</li>
+                     <li><strong>Use ações estrategicamente:</strong> Guarde cartas Pular, Reverter e +2 para quando o Bot tiver poucas cartas ou para se livrar de uma compra forçada.</li>
+                     <li><strong>Coringa +4 é poderosa:</strong> Use-a para mudar a cor E fazer o Bot comprar bastante, especialmente se ele estiver perto de vencer.</li>
+                     <li><strong>Não esqueça o "UNO!":</strong> Fique atento ao contador de cartas e clique no botão assim que possível!</li>
+                    <li><strong>Cartas jogáveis brilham:</strong> No jogo, as cartas que você pode jogar no seu turno terão um destaque ou brilho especial.</li>
+                 </ul>
+             </section>
+        </main>
+
+    </div><!-- Fim .container -->
+
+    <!-- Rodapé Padrão (igual ao do jogo) -->
+    <footer>
+        <div class="footer-links">
+            <a href="../../politica.html" rel="noopener noreferrer">Privacidade</a>
+            <span>|</span>
+            <a href="../../servicos.html" rel="noopener noreferrer">Serviços</a>
+            <span>|</span>
+            <a href="../../sobre.html" rel="noopener noreferrer">Sobre</a>
+            <span>|</span>
+            <a href="../../termos.html" rel="noopener noreferrer">Termos</a>
+            <span>|</span>
+            <a href="../../index.html" rel="noopener noreferrer">Início</a>
+            <span>|</span>
+            <a href="https://www.geekcode.dev.br" target="_blank" rel="noopener noreferrer">Desenvolvido por <span class="geek">GΞΞK</span><span class="code"> CΦDΞ</span></a>
+        </div>
+        <p class="copyright">© <span id="current-year">2024</span> <span class="geek">GΞΞK</span><span class="code"> CΦDΞ</span>. Todos os direitos reservados.</p>
+        <script> /* Pequeno script para atualizar ano (opcional se não for carregar o script principal do jogo) */
+             const yearSpan = document.getElementById('current-year');
+             if(yearSpan) yearSpan.textContent = new Date().getFullYear();
+        </script>
+    </footer>
+
+</body>
+</html>

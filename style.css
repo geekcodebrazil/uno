@@ -1,0 +1,360 @@
+/* Importação das Fontes */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@400;600&display=swap');
+
+/* ===== Variáveis de Cores ===== */
+:root {
+    --bg-table: #0f0f1a;
+    --bg-gradient-start: #1a1a2e;
+    --bg-gradient-end: #16213e;
+    --card-bg: #282a36;
+    --card-border: #44475a;
+    --text-light: #f8f8f2;
+    --text-dark: #282a36;
+    --highlight: #bd93f9;
+    --uno-red: #ff5555;
+    --uno-blue: #6272a4;
+    --uno-green: #50fa7b;
+    --uno-yellow: #f1fa8c;
+    --uno-black: #282a36;
+    --neon-pink: #ff79c6;
+    --neon-glow: 0 0 5px var(--highlight), 0 0 10px var(--highlight), 0 0 15px var(--highlight);
+    --neon-glow-button: 0 0 3px rgba(255, 255, 255, 0.8), 0 0 5px;
+    --font-primary: 'Poppins', sans-serif;
+    --font-secondary: 'Orbitron', sans-serif;
+}
+
+/* ===== Estilos Base ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--bg-table);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 15px 15px;
+    color: var(--text-light);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    /* Padding Geral Reduzido */
+    padding: 15px;
+    overflow-x: hidden;
+}
+
+/* ===== Layout Principal ===== */
+.game-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Ajuda a espaçar verticalmente */
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    /* Padding Interno Reduzido */
+    padding: 15px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4), 0 0 8px var(--highlight);
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* ===== LOGO UNO Styling ===== */
+.game-logo {
+    display: block;          /* Para aplicar margem auto */
+    margin: 0 auto 15px auto; /* Centraliza horizontalmente, margem inferior */
+    max-width: 150px;       /* Tamanho máximo inicial */
+    height: auto;           /* Mantém proporção */
+    opacity: 0.9;           /* Leve transparência para integrar */
+}
+/* ========================== */
+
+h2 {
+    font-family: var(--font-secondary);
+    text-align: center;
+    margin-bottom: 10px;
+    color: var(--highlight);
+    text-shadow: 0 0 3px var(--highlight);
+    order: 0;
+}
+
+/* Zonas dos jogadores */
+.player-zone {
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    padding: 15px;
+    /* Margem Inferior Reduzida */
+    margin-bottom: 10px;
+    transition: box-shadow 0.5s ease-in-out, border-color 0.5s ease-in-out;
+    border: 2px solid transparent;
+}
+
+.player-zone h2 { margin-bottom: 15px; }
+
+/* Área das mãos */
+.hand-area {
+    /* Altura Mínima Reduzida */
+    min-height: 105px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+/* ===== Área Oponente ===== */
+.opponent-area { order: 1; }
+.opponent-hand { align-items: center; }
+.opponent-hand .card--back[data-count]::after {
+    content: attr(data-count); position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); font-size: 1.8rem; font-weight: bold;
+    color: var(--text-light); font-family: var(--font-secondary);
+    text-shadow: 1px 1px 3px black; background-color: rgba(0,0,0,0.5);
+    padding: 2px 8px; border-radius: 4px;
+}
+
+/* ===== Área Central ===== */
+.center-area {
+    display: flex; justify-content: center; align-items: center;
+    /* Gap e Margem Reduzidos */
+    gap: 25px;
+    margin: 5px 0;
+    order: 2;
+}
+.pile { position: relative; width: 70px; height: 100px; }
+.deck .card--back { cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.deck:hover .card--back { transform: scale(1.05); box-shadow: 0 0 8px var(--neon-pink), 0 0 15px var(--neon-pink); }
+.discard-pile { min-width: 70px; min-height: 100px; position: relative; }
+.discard-pile .card { position: absolute; top: 0; left: 0; }
+/* Efeito pilha descarte */
+.discard-pile .card:nth-child(n+2) { transform: translateX(2.5px) translateY(2.5px) rotate(4deg); z-index: -1; opacity: 0.75; filter: blur(0.5px); }
+.discard-pile .card:nth-child(n+3) { transform: translateX(-2.5px) translateY(5px) rotate(-3deg); z-index: -2; opacity: 0.5; filter: blur(1px); }
+.card--placeholder {
+    background-color: rgba(0, 0, 0, 0.2); border: 2px dashed var(--card-border); display: flex;
+    justify-content: center; align-items: center; font-size: 0.8rem; color: var(--card-border);
+    width: 100%; height: 100%; position: absolute; top: 0; left: 0;
+}
+
+/* Placeholder Reembaralhar */
+.card--reshuffle span { font-size: 0.7rem; }
+
+
+/* ===== Cartas ===== */
+.card {
+    width: 70px; height: 100px; border-radius: 8px; background-color: var(--card-bg);
+    border: 1px solid var(--card-border); box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-family: var(--font-secondary); font-size: 1.8rem; font-weight: bold;
+    position: relative; color: var(--text-light); overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    cursor: default;
+}
+.card--back { background: linear-gradient(135deg, #414345, #232526); }
+.card--back::before { content: 'UNO'; font-size: 1.5rem; color: var(--uno-red); text-shadow: 1px 1px 1px rgba(0,0,0,0.7); transform: rotate(-10deg); }
+.card--red { background-color: var(--uno-red); color: var(--text-light); }
+.card--blue { background-color: var(--uno-blue); color: var(--text-light); }
+.card--green { background-color: var(--uno-green); color: var(--text-dark); }
+.card--yellow { background-color: var(--uno-yellow); color: var(--text-dark); }
+.card--special { background-color: var(--uno-black); }
+/* ... (restante dos estilos de valor/ícone da carta mantidos) ... */
+.card--special.card--red::before, .card--special.card--blue::before, .card--special.card--green::before, .card--special.card--yellow::before { content: ''; width: 40px; height: 40px; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 0; }
+.card--special.card--red::before { background-color: var(--uno-red); }
+.card--special.card--blue::before { background-color: var(--uno-blue); }
+.card--special.card--green::before { background-color: var(--uno-green); }
+.card--special.card--yellow::before { background-color: var(--uno-yellow); }
+.card .value { position: relative; z-index: 1; font-size: 1.5rem; }
+.card--draw2 .value::after { content: '+2'; }
+.card--skip .value::after { content: 'Ø'; font-size: 2rem; line-height: 1; }
+.card--reverse .value::after { content: '⇄'; font-size: 2rem; }
+.card--wild .value, .card--wild4 .value { font-size: 1.1rem; }
+.card--wild .value::after { content: 'Wild'; }
+.card--wild4 .value::after { content: '+4'; }
+.card--wild, .card--wild4 { background: linear-gradient(135deg, var(--uno-red), var(--uno-yellow), var(--uno-green), var(--uno-blue)); color: var(--text-light); text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.discard-pile > .card:first-child[style*="box-shadow"] { border-width: 2px; } /* Estilo Borda Colorida */
+
+/* Badge Compra Acumulada (estilizado aqui para não depender de JS inline complexo) */
+.draw-count-badge {
+    position: absolute; top: 5px; right: 5px;
+    background-color: rgba(255, 85, 85, 0.9); color: white;
+    font-weight: bold; font-family: var(--font-secondary); font-size: 1.1rem;
+    padding: 2px 6px; border-radius: 4px; z-index: 10;
+    text-shadow: 1px 1px 2px black;
+    animation: pulse 1.2s infinite ease-in-out;
+}
+
+/* ===== Área Jogador ===== */
+.player-area { order: 3; display: flex; flex-direction: column; }
+.player-hand {
+    align-items: flex-end;
+    /* Gap (Sobreposição) Ajustado */
+    gap: -28px;
+    /* Margem Inferior Reduzida */
+    margin-bottom: 10px;
+    padding-left: 30px; padding-right: 30px; order: 1;
+}
+.player-hand .card {
+    position: relative; cursor: pointer;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, z-index 0s linear 0.2s, border-color 0.2s ease-out;
+}
+.player-hand .card:hover {
+    transform: translateY(-15px) scale(1.05); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    z-index: 10; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, z-index 0s;
+}
+.player-hand .card--playable { border: 2px solid var(--neon-pink); box-shadow: 0 0 8px var(--neon-pink); }
+.player-hand .card--playable:hover { box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4), 0 0 12px var(--neon-pink); }
+
+/* Botões de Ação */
+.action-buttons {
+    display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;
+    /* Margem Inferior Reduzida */
+    margin-bottom: 10px;
+    order: 2;
+}
+.btn {
+    padding: 12px 25px; font-family: var(--font-secondary); font-size: 1rem; font-weight: bold;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    background-color: var(--highlight); color: var(--text-dark); text-transform: uppercase; text-shadow: none;
+}
+.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), var(--neon-glow-button) var(--highlight); }
+.btn:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); }
+.btn:disabled { background-color: var(--card-border); color: #aaa; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn--draw { background-color: var(--uno-blue); color: var(--text-light); }
+.btn--uno { background-color: var(--uno-yellow); color: var(--text-dark); animation: pulse 1.5s infinite ease-in-out; animation-play-state: paused; }
+.btn--uno.can-press { animation-play-state: running; box-shadow: var(--neon-glow-button) var(--uno-yellow); }
+.btn--uno:disabled { animation: none; box-shadow: none; }
+
+/* Título Jogador */
+.player-area h2 { order: 3; margin-bottom: 0; margin-top: 5px; }
+
+/* ===== Status do Jogo ===== */
+.game-status {
+    text-align: center; font-size: 1.1rem; font-weight: 600;
+    /* Margens Reduzidas */
+    margin-top: 5px; margin-bottom: 5px;
+    /* Altura Mínima Reduzida */
+    min-height: 38px;
+    color: var(--highlight); order: 4; width: 100%; padding: 5px;
+}
+/* ... (estilos de status específicos mantidos) ... */
+.game-status .player-turn { color: var(--neon-pink); }
+.game-status .uno-alert { color: var(--uno-yellow); font-weight: bold; text-transform: uppercase; }
+.game-status .error-message { color: var(--uno-red); }
+.game-status .winner-message { color: var(--uno-green); font-size: 1.5rem; font-family: var(--font-secondary); }
+.game-status .btn--restart {
+    margin-top: 10px; font-size: 0.9rem; padding: 8px 18px;
+    background-color: var(--uno-green); color: var(--text-dark);
+}
+.game-status .btn--restart:hover:not(:disabled) { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), var(--neon-glow-button) var(--uno-green); }
+
+/* ===== Modal Cor ===== */
+.modal-overlay { /* ... (mantido) ... */ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(5px); }
+.modal-content { /* ... (mantido) ... */ background: var(--card-bg); padding: 30px; border-radius: 10px; border: 1px solid var(--highlight); box-shadow: 0 0 20px var(--highlight); text-align: center; }
+.modal-content h3 { /* ... (mantido) ... */ margin-bottom: 20px; font-family: var(--font-secondary); color: var(--highlight); }
+.color-options { /* ... (mantido) ... */ display: flex; justify-content: center; gap: 15px; }
+.color-btn { /* ... (mantido) ... */ width: 60px; height: 60px; border: none; border-radius: 50%; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+.color-btn:hover { /* ... (mantido) ... */ transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+.color--red { background-color: var(--uno-red); } .color--blue { background-color: var(--uno-blue); } .color--green { background-color: var(--uno-green); } .color--yellow { background-color: var(--uno-yellow); }
+
+/* ===== Rodapé ===== */
+footer { background-color: rgba(0, 0, 0, 0.3); padding: 15px 0; text-align: center; margin-top: auto; font-size: 0.9rem; width: 100%; }
+.footer-links a, .footer-links span { color: var(--text-light); text-decoration: none; margin: 0 8px; transition: color 0.2s ease; }
+.footer-links a:hover { color: var(--highlight); text-decoration: underline; }
+.footer-links span { color: var(--card-border); }
+.copyright { margin-top: 10px; color: #aaa; }
+.geek { color: var(--uno-green); font-weight: bold; } .code { color: var(--neon-pink); font-weight: bold; }
+
+/* ===== Animações ===== */
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.9; } }
+@keyframes card-fly { 0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translate(var(--tx, 0px), var(--ty, -50px)) rotate(var(--r, 5deg)) scale(0.8); opacity: 0; } }
+@keyframes card-draw { from { transform: translate(-50px, -50px) scale(0.5); opacity: 0;} to { transform: translate(0, 0) scale(1); opacity: 1;} }
+@keyframes shake { 10%, 90% { transform: translateX(-1px) rotate(-1deg); } 20%, 80% { transform: translateX(2px) rotate(1deg); } 30%, 50%, 70% { transform: translateX(-3px) rotate(-2deg); } 40%, 60% { transform: translateX(3px) rotate(2deg); } 100% { transform: translateX(0) rotate(0deg); } }
+
+/* ===== Indicador Turno Ativo ===== */
+.player-zone.active-turn {
+    border-color: var(--neon-pink);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3), 0 0 10px var(--neon-pink), inset 0 0 5px rgba(255, 121, 198, 0.3);
+}
+
+/* ===== Indicador UNO ===== */
+.player-zone h2 { position: relative; display: inline-block; padding-right: 30px; }
+.uno-badge {
+    position: absolute; top: 50%; right: 0px; transform: translateY(-50%) rotate(-10deg);
+    background-color: var(--uno-yellow); color: var(--text-dark); font-family: var(--font-secondary);
+    font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px;
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5); z-index: 5; opacity: 0; visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+.player-zone.has-uno .uno-badge { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s linear 0s; }
+.opponent-area h2 { padding-right: 0; padding-left: 30px; text-align: center; }
+.opponent-area .uno-badge { right: auto; left: 0px; }
+
+/* ===== Responsividade ===== */
+/* Tablets e telas menores */
+@media (max-width: 768px) {
+    body { padding: 10px; }
+    .game-container { padding: 10px; }
+    .game-logo { max-width: 120px; margin-bottom: 10px;} /* Logo menor */
+    .player-zone { padding: 8px; margin-bottom: 8px; }
+    .center-area { gap: 15px; margin: 5px 0; }
+    .pile, .card { width: 60px; height: 85px; }
+    .card { font-size: 1.5rem; } .card .value { font-size: 1.3rem; }
+    .card--skip .value::after, .card--reverse .value::after { font-size: 1.7rem; }
+    .card--wild .value, .card--wild4 .value { font-size: 1rem; }
+    .opponent-hand .card--back[data-count]::after { font-size: 1.5rem; }
+    .hand-area { min-height: 90px; }
+    .player-hand { gap: -22px; padding-left: 20px; padding-right: 20px;}
+    .action-buttons { margin-bottom: 8px; }
+    .btn { padding: 10px 20px; font-size: 0.9rem; }
+    .modal-content { padding: 20px; max-width: 90%; }
+    .color-btn { width: 50px; height: 50px; }
+    footer { font-size: 0.8rem; padding: 10px 0; }
+    .footer-links a, .footer-links span { margin: 0 5px;}
+    /* Badge UNO Tablet */
+    .player-zone h2 { padding-right: 25px; }
+    .opponent-area h2 { padding-left: 25px; }
+    .uno-badge { font-size: 0.65rem; }
+    /* Turno Ativo Tablet */
+    .player-zone.active-turn { box-shadow: 0 0 12px rgba(0, 0, 0, 0.25), 0 0 8px var(--neon-pink), inset 0 0 4px rgba(255, 121, 198, 0.3); }
+}
+
+/* Celulares */
+@media (max-width: 480px) {
+    body { padding: 8px; }
+    .game-container { padding: 8px; }
+    .game-logo { max-width: 90px; margin-bottom: 8px; } /* Logo menor ainda */
+    .player-zone { padding: 6px; margin-bottom: 5px; }
+    .player-zone h2 { font-size: 0.9rem; margin-bottom: 8px; }
+    /* Ordem Mobile */
+    .player-area { order: 1; } .center-area { order: 2; } .opponent-area { order: 3; }
+    /* Ajustes Centro */
+    .center-area { flex-direction: row; gap: 10px; margin: 8px 0; }
+    .pile, .card { width: 50px; height: 70px; }
+    .card { font-size: 1.2rem; border-radius: 5px; } .card .value { font-size: 1.1rem; }
+    .card--skip .value::after, .card--reverse .value::after { font-size: 1.4rem; }
+    .card--wild .value, .card--wild4 .value { font-size: 0.8rem; }
+    .opponent-hand .card--back[data-count]::after { font-size: 1rem; padding: 1px 5px; }
+    /* Mão Jogador Mobile */
+    .hand-area { min-height: 75px; }
+    .player-hand { gap: -28px; padding-left: 10px; padding-right: 10px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; justify-content: flex-start; padding-bottom: 10px; order: 1; margin-bottom: 8px; }
+    .player-hand .card { flex-shrink: 0; }
+    .player-hand .card:hover { transform: translateY(-8px) scale(1.03); }
+    /* Botões e Título Jogador Mobile */
+    .player-area .action-buttons { order: 2; margin-bottom: 8px; }
+    .player-area h2 { order: 3; margin-top: 3px;}
+    .action-buttons { gap: 8px; }
+    .btn { padding: 7px 12px; font-size: 0.75rem; }
+    /* Status Mobile */
+    .game-status { font-size: 0.85rem; min-height: 30px; margin-top: 3px; }
+    .game-status .btn--restart { font-size: 0.7rem; padding: 5px 10px; }
+    /* Modal Mobile */
+    .modal-content { padding: 15px; } .color-btn { width: 40px; height: 40px; }
+    /* Rodapé Mobile */
+    footer { padding: 10px 0; }
+    .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+    .footer-links span { display: none; } .footer-links a { margin: 0 5px; }
+    .copyright { font-size: 0.75rem; margin-top: 8px; }
+    /* Turno Ativo Mobile */
+    .player-zone.active-turn { box-shadow: 0 0 8px rgba(0, 0, 0, 0.2), 0 0 6px var(--neon-pink), inset 0 0 3px rgba(255, 121, 198, 0.3); }
+    /* Badge UNO Mobile */
+    .player-zone h2 { padding-right: 22px; } .opponent-area h2 { padding-left: 22px; }
+    .uno-badge { font-size: 0.6rem; padding: 1px 4px; }
+}

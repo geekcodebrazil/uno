@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de UNO Online — Visual Moderno e Responsivo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+
+        <!-- ===== LOGO UNO ADICIONADO AQUI ===== -->
+        <img src="./images/uno_logo.png" alt="Logo UNO" class="game-logo">
+        <!-- =================================== -->
+
+        <!-- Área do Oponente (Bot) -->
+        <div class="opponent-area player-zone">
+            <h2>Oponente (Bot) <span class="uno-badge">UNO!</span></h2>
+            <div class="opponent-hand hand-area">
+                <div class="card card--back" data-count="7"></div>
+            </div>
+        </div>
+
+        <!-- Área Central (Baralho e Descarte) -->
+        <div class="center-area">
+            <div class="deck pile" id="deck-pile" title="Comprar Carta">
+                <div class="card card--back"></div>
+            </div>
+            <div class="discard-pile pile" id="discard-pile">
+                <div class="card card--placeholder"><span>Descarte</span></div>
+            </div>
+        </div>
+
+        <!-- Área do Jogador -->
+        <div class="player-area player-zone">
+            <div class="player-hand hand-area" id="player-hand">
+                <!-- Suas cartas -->
+            </div>
+            <div class="action-buttons">
+                <button id="draw-card-btn" class="btn btn--draw">Comprar Carta</button>
+                <button id="uno-btn" class="btn btn--uno" disabled>UNO!</button>
+            </div>
+             <h2>Sua Mão <span class="uno-badge">UNO!</span></h2>
+        </div>
+
+        <!-- Status do Jogo -->
+        <div class="game-status" id="game-status">
+            Carregando o jogo...
+        </div>
+
+        <!-- Modal para Escolha de Cor -->
+        <div class="modal-overlay" id="color-picker-modal" style="display: none;">
+            <div class="modal-content">
+                <h3>Escolha uma cor:</h3>
+                <div class="color-options">
+                    <button class="color-btn color--red" data-color="red">Vermelho</button>
+                    <button class="color-btn color--blue" data-color="blue">Azul</button>
+                    <button class="color-btn color--green" data-color="green">Verde</button>
+                    <button class="color-btn color--yellow" data-color="yellow">Amarelo</button>
+                </div>
+            </div>
+        </div>
+    </div><!-- Fim de .game-container -->
+
+    <!-- Rodapé Padrão -->
+    <footer>
+        <div class="footer-links">
+            <a href="../../politica.html" rel="noopener noreferrer">Privacidade</a>
+            <span>|</span>
+            <a href="../../servicos.html" rel="noopener noreferrer">Serviços</a>
+            <span>|</span>
+            <a href="../../sobre.html" rel="noopener noreferrer">Sobre</a>
+            <span>|</span>
+            <a href="../../termos.html" rel="noopener noreferrer">Termos</a>
+            <span>|</span>
+            <!-- Link Regras Adicionado -->
+            <a href="regras.html" rel="noopener noreferrer">Regras</a>
+            <span>|</span>
+            <a href="../../index.html" rel="noopener noreferrer">Início</a>
+            <span>|</span>
+            <a href="https://www.geekcode.dev.br" target="_blank" rel="noopener noreferrer">Desenvolvido por <span class="geek">GΞΞK</span><span class="code"> CΦDΞ</span></a>
+        </div>
+        <p class="copyright">© <span id="current-year"></span> <span class="geek">GΞΞK</span><span class="code"> CΦDΞ</span>. Todos os direitos reservados.</p>
+    </footer>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
